@@ -9,6 +9,7 @@ import typer
 
 from .analyzer import analyze_failure
 from .models import AnalysisResult, CIFailure
+from .pipeline import analyze_log
 
 app = typer.Typer(help="Analyze CI failures using local deterministic evidence.")
 
@@ -51,6 +52,20 @@ def analyze(
 
     failure = CIFailure.model_validate_json(failure_json.read_text(encoding="utf-8"))
     result = analyze_failure(failure)
+    if json_output:
+        typer.echo(result.model_dump_json(indent=2))
+        return
+    _print_report(result)
+
+
+@app.command("analyze-log")
+def analyze_log_file(
+    raw_log_file: Annotated[Path, typer.Argument(exists=True, readable=True, help="Path to a raw CI log file.")],
+    json_output: Annotated[bool, typer.Option("--json", help="Print the analysis result as JSON.")] = False,
+) -> None:
+    """Extract failure evidence from and analyze a local raw CI log."""
+
+    result = analyze_log(raw_log_file.read_text(encoding="utf-8"))
     if json_output:
         typer.echo(result.model_dump_json(indent=2))
         return
