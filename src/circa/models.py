@@ -30,10 +30,13 @@ class HistoricalIncident(BaseModel):
 
 
 class AnalysisResult(BaseModel):
-    """The structured result produced by a future analysis layer."""
+    """The structured result produced by deterministic local analysis."""
 
     fingerprint: str = Field(min_length=1)
     category: CauseCategory
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     root_cause: str = Field(min_length=1)
+    evidence: list[str] = Field(default_factory=list)
     recommendation: str = Field(min_length=1)
+    owner: str = Field(default="unknown", min_length=1)
     matched_incident_ids: list[str] = Field(default_factory=list)
