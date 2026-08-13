@@ -1,0 +1,7 @@
+{
+  "failure_text": "Worker disk full: no space left for compiler output.",
+  "environment": {
+    "os": "linux",
+    "runner": "bare-metal"
+  }
+}
