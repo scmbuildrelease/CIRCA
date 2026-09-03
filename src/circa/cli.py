@@ -9,11 +9,14 @@ from typing import Annotated
 import typer
 
 from .analyzer import analyze_failure
+from .hybrid import apply_hybrid_scoring
 from .llm import classify_failure, explain_analysis
 from .models import AnalysisResult, CIFailure, LLMClassification
 from .pipeline import analyze_log
 
 app = typer.Typer(help="Analyze CI failures using local deterministic evidence.")
+
+_HYBRID_FIELDS = {"llm_classification", "final_category", "final_confidence", "final_root_cause"}
 
 
 @app.callback()
@@ -62,6 +65,15 @@ def _print_llm_classification(classification: LLMClassification) -> None:
         typer.echo("- None")
 
 
+def _print_hybrid_analysis(result: AnalysisResult) -> None:
+    """Print the final deterministic-first hybrid result."""
+
+    typer.echo("Final Hybrid Analysis")
+    typer.echo(f"Category: {result.final_category}")
+    typer.echo(f"Confidence: {result.final_confidence:.2f}")
+    typer.echo(f"Root Cause: {result.final_root_cause}")
+
+
 @app.command()
 def analyze(
     failure_json: Annotated[Path, typer.Argument(exists=True, readable=True, help="Path to a CIFailure JSON file.")],
@@ -74,27 +86,38 @@ def analyze(
     """Analyze a local CIFailure JSON file."""
 
     failure = CIFailure.model_validate_json(failure_json.read_text(encoding="utf-8"))
-    result = analyze_failure(failure)
+    deterministic_result = analyze_failure(failure)
     if llm:
-        result = explain_analysis(failure.failure_text, result)
-    classification = classify_failure(failure, result) if llm_classify else None
+        deterministic_result = explain_analysis(failure.failure_text, deterministic_result)
+    classification = classify_failure(failure, deterministic_result) if llm_classify else None
+    result = apply_hybrid_scoring(deterministic_result, classification) if llm_classify else deterministic_result
     if llm_classify and classification is None:
         typer.echo("Warning: LLM classification unavailable.", err=True)
     if json_output:
         if llm_classify:
             typer.echo(
                 json.dumps(
-                    {"deterministic_analysis": result.model_dump(), "llm_classification": classification.model_dump() if classification else None},
+                    {
+                        "deterministic_analysis": deterministic_result.model_dump(exclude=_HYBRID_FIELDS),
+                        "llm_classification": classification.model_dump() if classification else None,
+                        "final_hybrid_analysis": {
+                            "category": result.final_category,
+                            "confidence": result.final_confidence,
+                            "root_cause": result.final_root_cause,
+                        },
+                    },
                     indent=2,
                 )
             )
         else:
-            typer.echo(result.model_dump_json(indent=2))
+            typer.echo(result.model_dump_json(indent=2, exclude=_HYBRID_FIELDS))
         return
     _print_report(result, "Deterministic Analysis" if llm_classify else "CIRCA Analysis Report")
     if classification:
         typer.echo()
         _print_llm_classification(classification)
+        typer.echo()
+        _print_hybrid_analysis(result)
 
 
 @app.command("analyze-log")

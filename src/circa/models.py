@@ -29,6 +29,15 @@ class HistoricalIncident(BaseModel):
     synthetic: Literal[True]
 
 
+class LLMClassification(BaseModel):
+    """An independent, structured classification supplied by a local LLM."""
+
+    category: CauseCategory
+    confidence: float = Field(ge=0.0, le=1.0)
+    root_cause: str = Field(min_length=1)
+    evidence: list[str] = Field(default_factory=list)
+
+
 class AnalysisResult(BaseModel):
     """The structured result produced by deterministic local analysis."""
 
@@ -41,12 +50,7 @@ class AnalysisResult(BaseModel):
     owner: str = Field(default="unknown", min_length=1)
     matched_incident_ids: list[str] = Field(default_factory=list)
     llm_explanation: str | None = None
-
-
-class LLMClassification(BaseModel):
-    """An independent, structured classification supplied by a local LLM."""
-
-    category: CauseCategory
-    confidence: float = Field(ge=0.0, le=1.0)
-    root_cause: str = Field(min_length=1)
-    evidence: list[str] = Field(default_factory=list)
+    llm_classification: LLMClassification | None = None
+    final_category: CauseCategory | None = None
+    final_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    final_root_cause: str | None = None

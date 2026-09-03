@@ -69,6 +69,7 @@ def test_analyze_llm_classify_prints_independent_classification() -> None:
     assert result.exit_code == 0
     assert "Deterministic Analysis" in result.output
     assert "LLM Classification" in result.output
+    assert "Final Hybrid Analysis" in result.output
     assert "Confidence: 0.92" in result.output
     classify.assert_called_once()
 
@@ -85,6 +86,10 @@ def test_analyze_llm_classify_includes_structured_json() -> None:
     payload = json.loads(result.output)
     assert payload["deterministic_analysis"]["category"] == "hardware"
     assert payload["llm_classification"]["confidence"] == 0.92
+    assert payload["final_hybrid_analysis"]["category"] == "hardware"
+    assert payload["final_hybrid_analysis"]["root_cause"] == (
+        "Build failed because the worker disk had no space left for compiler output."
+    )
 
 
 def test_analyze_without_llm_classify_does_not_call_classifier() -> None:
