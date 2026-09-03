@@ -40,3 +40,4 @@ class AnalysisResult(BaseModel):
     recommendation: str = Field(min_length=1)
     owner: str = Field(default="unknown", min_length=1)
     matched_incident_ids: list[str] = Field(default_factory=list)
+    llm_explanation: str | None = None

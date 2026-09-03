@@ -8,6 +8,7 @@ from typing import Annotated
 import typer
 
 from .analyzer import analyze_failure
+from .llm import explain_analysis
 from .models import AnalysisResult, CIFailure
 from .pipeline import analyze_log
 
@@ -41,17 +42,22 @@ def _print_report(result: AnalysisResult) -> None:
     typer.echo(f"Recommendation: {result.recommendation}")
     typer.echo(f"Owner: {result.owner}")
     typer.echo(f"Fingerprint: {result.fingerprint}")
+    if result.llm_explanation:
+        typer.echo(f"LLM explanation: {result.llm_explanation}")
 
 
 @app.command()
 def analyze(
     failure_json: Annotated[Path, typer.Argument(exists=True, readable=True, help="Path to a CIFailure JSON file.")],
     json_output: Annotated[bool, typer.Option("--json", help="Print the analysis result as JSON.")] = False,
+    llm: Annotated[bool, typer.Option("--llm", help="Add an optional local Ollama explanation.")] = False,
 ) -> None:
     """Analyze a local CIFailure JSON file."""
 
     failure = CIFailure.model_validate_json(failure_json.read_text(encoding="utf-8"))
     result = analyze_failure(failure)
+    if llm:
+        result = explain_analysis(failure.failure_text, result)
     if json_output:
         typer.echo(result.model_dump_json(indent=2))
         return
