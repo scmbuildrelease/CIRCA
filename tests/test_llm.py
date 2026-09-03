@@ -1,8 +1,11 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from circa.llm import OllamaProvider, explain_analysis
-from circa.models import AnalysisResult
+import pytest
+from pydantic import ValidationError
+
+from circa.llm import OllamaProvider, classify_failure, explain_analysis
+from circa.models import AnalysisResult, CIFailure, LLMClassification
 
 
 def _result() -> AnalysisResult:
@@ -55,3 +58,70 @@ def test_analysis_result_can_include_or_omit_explanation() -> None:
     explained = explain_analysis("no space left", result, Provider())
     assert explained.llm_explanation == "The full disk is supported by deterministic evidence."
     assert explained.category == "hardware"
+
+
+def test_llm_classification_validates_category_and_confidence() -> None:
+    classification = LLMClassification(
+        category="hardware", confidence=0.92, root_cause="Disk is full.", evidence=["no space left"]
+    )
+
+    assert classification.category == "hardware"
+    assert classification.confidence == 0.92
+
+
+def test_llm_classification_rejects_invalid_category() -> None:
+    with pytest.raises(ValidationError):
+        LLMClassification(category="database", confidence=0.5, root_cause="Unknown", evidence=[])
+
+
+def test_llm_classification_rejects_invalid_confidence() -> None:
+    with pytest.raises(ValidationError):
+        LLMClassification(category="hardware", confidence=1.1, root_cause="Disk is full.", evidence=[])
+
+
+def test_ollama_provider_returns_structured_classification() -> None:
+    response = MagicMock()
+    response.read.return_value = json.dumps(
+        {
+            "response": json.dumps(
+                {
+                    "category": "hardware",
+                    "confidence": 0.92,
+                    "root_cause": "Disk is full.",
+                    "evidence": ["no space left on device"],
+                }
+            )
+        }
+    ).encode()
+    response.__enter__.return_value = response
+    with patch("circa.llm.urlopen", return_value=response) as mocked_urlopen:
+        classification = OllamaProvider(model="test-model", url="http://ollama.test").classify("prompt")
+
+    assert classification is not None
+    assert classification.category == "hardware"
+    request = mocked_urlopen.call_args.args[0]
+    assert json.loads(request.data)["format"] == "json"
+
+
+def test_ollama_provider_returns_none_for_malformed_classification_json() -> None:
+    response = MagicMock()
+    response.read.return_value = json.dumps({"response": "not json"}).encode()
+    response.__enter__.return_value = response
+    with patch("circa.llm.urlopen", return_value=response):
+        assert OllamaProvider().classify("prompt") is None
+
+
+def test_ollama_provider_classification_fails_gracefully_when_unavailable() -> None:
+    with patch("circa.llm.urlopen", side_effect=OSError("Ollama unavailable")):
+        assert OllamaProvider().classify("prompt") is None
+
+
+def test_classify_failure_returns_provider_classification() -> None:
+    class Provider:
+        def classify(self, prompt: str) -> LLMClassification:
+            return LLMClassification(category="hardware", confidence=0.9, root_cause="Disk full", evidence=["disk"])
+
+    classification = classify_failure(CIFailure(failure_text="no space left"), _result(), Provider())
+
+    assert classification is not None
+    assert classification.root_cause == "Disk full"

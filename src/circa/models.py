@@ -41,3 +41,12 @@ class AnalysisResult(BaseModel):
     owner: str = Field(default="unknown", min_length=1)
     matched_incident_ids: list[str] = Field(default_factory=list)
     llm_explanation: str | None = None
+
+
+class LLMClassification(BaseModel):
+    """An independent, structured classification supplied by a local LLM."""
+
+    category: CauseCategory
+    confidence: float = Field(ge=0.0, le=1.0)
+    root_cause: str = Field(min_length=1)
+    evidence: list[str] = Field(default_factory=list)

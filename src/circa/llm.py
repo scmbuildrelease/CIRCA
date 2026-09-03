@@ -8,8 +8,10 @@ from typing import Protocol
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from .models import AnalysisResult
-from .prompts import build_explanation_prompt
+from pydantic import ValidationError
+
+from .models import AnalysisResult, CIFailure, LLMClassification
+from .prompts import build_classification_prompt, build_explanation_prompt
 
 
 class LLMProvider(Protocol):
@@ -48,6 +50,34 @@ class OllamaProvider:
         explanation = body.get("response")
         return explanation.strip() if isinstance(explanation, str) and explanation.strip() else None
 
+    def classify(self, prompt: str) -> LLMClassification | None:
+        """Return a validated structured local classification, when available."""
+
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+                "format": "json",
+                "options": {"temperature": 0},
+            }
+        ).encode("utf-8")
+        request = Request(
+            f"{self.url}/api/generate",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=self.timeout) as response:  # noqa: S310 -- configured local URL
+                body = json.loads(response.read().decode("utf-8"))
+            response_text = body.get("response")
+            if not isinstance(response_text, str):
+                return None
+            return LLMClassification.model_validate_json(response_text)
+        except (OSError, URLError, ValueError, json.JSONDecodeError, ValidationError):
+            return None
+
 
 def explain_analysis(
     failure_text: str,
@@ -58,3 +88,13 @@ def explain_analysis(
 
     explanation = (provider or OllamaProvider()).explain(build_explanation_prompt(failure_text, result))
     return result.model_copy(update={"llm_explanation": explanation})
+
+
+def classify_failure(
+    failure: CIFailure,
+    result: AnalysisResult,
+    provider: OllamaProvider | None = None,
+) -> LLMClassification | None:
+    """Return an optional independent LLM opinion without changing deterministic analysis."""
+
+    return (provider or OllamaProvider()).classify(build_classification_prompt(failure, result))
