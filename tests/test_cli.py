@@ -5,7 +5,8 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from circa.cli import app
-from circa.models import LLMClassification
+from circa.knowledge import load_incidents
+from circa.models import LLMClassification, SemanticIncidentMatch
 
 runner = CliRunner()
 
@@ -99,3 +100,40 @@ def test_analyze_without_llm_classify_does_not_call_classifier() -> None:
 
     assert result.exit_code == 0
     classify.assert_not_called()
+
+
+def test_analyze_semantic_retrieve_prints_ranked_matches() -> None:
+    example = Path(__file__).parents[1] / "examples" / "hardware_failure.json"
+    semantic_match = SemanticIncidentMatch(
+        incident=load_incidents(Path(__file__).parents[1] / "data" / "incidents.json")[0],
+        similarity=0.91,
+    )
+    with patch("circa.cli.SemanticIncidentRetriever.retrieve", return_value=[semantic_match]):
+        result = runner.invoke(app, ["analyze", str(example), "--semantic-retrieve"])
+
+    assert result.exit_code == 0
+    assert "Semantic Historical Matches" in result.output
+    assert "0.91" in result.output
+
+
+def test_analyze_semantic_retrieve_includes_json_matches() -> None:
+    example = Path(__file__).parents[1] / "examples" / "hardware_failure.json"
+    semantic_match = SemanticIncidentMatch(
+        incident=load_incidents(Path(__file__).parents[1] / "data" / "incidents.json")[0],
+        similarity=0.91,
+    )
+    with patch("circa.cli.SemanticIncidentRetriever.retrieve", return_value=[semantic_match]):
+        result = runner.invoke(app, ["analyze", str(example), "--semantic-retrieve", "--json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.output)["semantic_matches"][0]["similarity"] == 0.91
+
+
+def test_unavailable_semantic_retrieval_preserves_keyword_analysis() -> None:
+    example = Path(__file__).parents[1] / "examples" / "hardware_failure.json"
+    with patch("circa.cli.SemanticIncidentRetriever.retrieve", return_value=None):
+        result = runner.invoke(app, ["analyze", str(example), "--semantic-retrieve"])
+
+    assert result.exit_code == 0
+    assert "Warning: semantic retrieval unavailable." in result.output
+    assert "Category: hardware" in result.output

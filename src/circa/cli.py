@@ -11,8 +11,10 @@ import typer
 from .analyzer import analyze_failure
 from .hybrid import apply_hybrid_scoring
 from .llm import classify_failure, explain_analysis
-from .models import AnalysisResult, CIFailure, LLMClassification
+from .knowledge import load_incidents
+from .models import AnalysisResult, CIFailure, LLMClassification, SemanticIncidentMatch
 from .pipeline import analyze_log
+from .semantic import OllamaEmbeddingProvider, SemanticIncidentRetriever
 
 app = typer.Typer(help="Analyze CI failures using local deterministic evidence.")
 
@@ -74,6 +76,17 @@ def _print_hybrid_analysis(result: AnalysisResult) -> None:
     typer.echo(f"Root Cause: {result.final_root_cause}")
 
 
+def _print_semantic_matches(matches: list[SemanticIncidentMatch]) -> None:
+    """Print ranked local semantic incident matches."""
+
+    typer.echo("Semantic Historical Matches")
+    if not matches:
+        typer.echo("- None above the similarity threshold.")
+        return
+    for match in matches:
+        typer.echo(f"- {match.incident.id}: {match.similarity:.2f}")
+
+
 @app.command()
 def analyze(
     failure_json: Annotated[Path, typer.Argument(exists=True, readable=True, help="Path to a CIFailure JSON file.")],
@@ -81,6 +94,9 @@ def analyze(
     llm: Annotated[bool, typer.Option("--llm", help="Add an optional local Ollama explanation.")] = False,
     llm_classify: Annotated[
         bool, typer.Option("--llm-classify", help="Add an optional independent local LLM classification.")
+    ] = False,
+    semantic_retrieve: Annotated[
+        bool, typer.Option("--semantic-retrieve", help="Retrieve similar incidents with optional local embeddings.")
     ] = False,
 ) -> None:
     """Analyze a local CIFailure JSON file."""
@@ -91,26 +107,35 @@ def analyze(
         deterministic_result = explain_analysis(failure.failure_text, deterministic_result)
     classification = classify_failure(failure, deterministic_result) if llm_classify else None
     result = apply_hybrid_scoring(deterministic_result, classification) if llm_classify else deterministic_result
+    semantic_matches = None
+    if semantic_retrieve:
+        incidents = load_incidents(Path(__file__).parents[2] / "data" / "incidents.json")
+        semantic_matches = SemanticIncidentRetriever(OllamaEmbeddingProvider()).retrieve(failure, incidents)
     if llm_classify and classification is None:
         typer.echo("Warning: LLM classification unavailable.", err=True)
+    if semantic_retrieve and semantic_matches is None:
+        typer.echo("Warning: semantic retrieval unavailable.", err=True)
     if json_output:
         if llm_classify:
+            payload = {
+                "deterministic_analysis": deterministic_result.model_dump(exclude=_HYBRID_FIELDS),
+                "llm_classification": classification.model_dump() if classification else None,
+                "final_hybrid_analysis": {
+                    "category": result.final_category,
+                    "confidence": result.final_confidence,
+                    "root_cause": result.final_root_cause,
+                },
+            }
+            if semantic_retrieve:
+                payload["semantic_matches"] = [match.model_dump() for match in semantic_matches] if semantic_matches else []
             typer.echo(
-                json.dumps(
-                    {
-                        "deterministic_analysis": deterministic_result.model_dump(exclude=_HYBRID_FIELDS),
-                        "llm_classification": classification.model_dump() if classification else None,
-                        "final_hybrid_analysis": {
-                            "category": result.final_category,
-                            "confidence": result.final_confidence,
-                            "root_cause": result.final_root_cause,
-                        },
-                    },
-                    indent=2,
-                )
+                json.dumps(payload, indent=2)
             )
         else:
-            typer.echo(result.model_dump_json(indent=2, exclude=_HYBRID_FIELDS))
+            payload = result.model_dump(exclude=_HYBRID_FIELDS)
+            if semantic_retrieve:
+                payload["semantic_matches"] = [match.model_dump() for match in semantic_matches] if semantic_matches else []
+            typer.echo(json.dumps(payload, indent=2))
         return
     _print_report(result, "Deterministic Analysis" if llm_classify else "CIRCA Analysis Report")
     if classification:
@@ -118,6 +143,9 @@ def analyze(
         _print_llm_classification(classification)
         typer.echo()
         _print_hybrid_analysis(result)
+    if semantic_retrieve and semantic_matches is not None:
+        typer.echo()
+        _print_semantic_matches(semantic_matches)
 
 
 @app.command("analyze-log")

@@ -29,6 +29,13 @@ class HistoricalIncident(BaseModel):
     synthetic: Literal[True]
 
 
+class SemanticIncidentMatch(BaseModel):
+    """A historical incident ranked by local embedding similarity."""
+
+    incident: HistoricalIncident
+    similarity: float = Field(ge=-1.0, le=1.0)
+
+
 class LLMClassification(BaseModel):
     """An independent, structured classification supplied by a local LLM."""
 
