@@ -36,6 +36,25 @@ class SemanticIncidentMatch(BaseModel):
     similarity: float = Field(ge=-1.0, le=1.0)
 
 
+class KeywordIncidentMatch(BaseModel):
+    """A historical incident ranked by the deterministic keyword score."""
+
+    incident: HistoricalIncident
+    score: float = Field(gt=0.0)
+
+
+class HistoricalIncidentCandidate(BaseModel):
+    """A deduplicated historical candidate with explicit retrieval evidence."""
+
+    incident: HistoricalIncident
+    keyword_score: float | None = Field(default=None, gt=0.0)
+    semantic_similarity: float | None = Field(default=None, ge=-1.0, le=1.0)
+    keyword_rank: int | None = Field(default=None, ge=1)
+    semantic_rank: int | None = Field(default=None, ge=1)
+    fusion_score: float = Field(ge=0.0)
+    sources: list[Literal["keyword", "semantic"]] = Field(default_factory=list)
+
+
 class LLMClassification(BaseModel):
     """An independent, structured classification supplied by a local LLM."""
 

@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from .fingerprint import normalize_environment, normalize_failure_text
-from .models import CIFailure, HistoricalIncident
+from .models import CIFailure, HistoricalIncident, KeywordIncidentMatch
 
 _TOKEN = re.compile(r"[a-z0-9_./-]+")
 
@@ -47,12 +47,12 @@ def _score(failure: CIFailure, incident: HistoricalIncident) -> float:
     return score
 
 
-def find_similar_incidents(
+def find_similar_incident_matches(
     failure: CIFailure,
     incidents: Iterable[HistoricalIncident],
     limit: int = 3,
-) -> list[HistoricalIncident]:
-    """Return the best local matches using keyword, category, and environment overlap."""
+) -> list[KeywordIncidentMatch]:
+    """Return scored local matches using keyword, category, and environment overlap."""
 
     if limit < 1:
         return []
@@ -61,6 +61,16 @@ def find_similar_incidents(
         (incident, _score(failure, incident))
         for incident in incidents
     )
-    matches = [(incident, score) for incident, score in scored if score > 0]
-    matches.sort(key=lambda match: (-match[1], match[0].id))
-    return [incident for incident, _ in matches[:limit]]
+    matches = [KeywordIncidentMatch(incident=incident, score=score) for incident, score in scored if score > 0]
+    matches.sort(key=lambda match: (-match.score, match.incident.id))
+    return matches[:limit]
+
+
+def find_similar_incidents(
+    failure: CIFailure,
+    incidents: Iterable[HistoricalIncident],
+    limit: int = 3,
+) -> list[HistoricalIncident]:
+    """Return the original unscored local keyword matches for compatibility."""
+
+    return [match.incident for match in find_similar_incident_matches(failure, incidents, limit)]
