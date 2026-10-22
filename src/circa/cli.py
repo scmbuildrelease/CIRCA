@@ -9,6 +9,7 @@ from typing import Annotated
 import typer
 
 from .analyzer import analyze_failure
+from .benchmark import BenchmarkMethodResult, load_evaluation_cases, run_retrieval_benchmark
 from .hybrid import apply_hybrid_scoring
 from .llm import classify_failure, explain_analysis
 from .knowledge import load_incidents
@@ -87,6 +88,24 @@ def _print_semantic_matches(matches: list[SemanticIncidentMatch]) -> None:
         typer.echo(f"- {match.incident.id}: {match.similarity:.2f}")
 
 
+def _format_metric(value: float | None) -> str:
+    return "unavailable" if value is None else f"{value:.3f}"
+
+
+def _print_benchmark_method(method: BenchmarkMethodResult, top_k: int) -> None:
+    """Print retrieval-only metrics and their documented denominators."""
+
+    metrics = method.metrics
+    typer.echo(f"{method.name.title()} retrieval ({method.status})")
+    typer.echo(f"  evaluated: {metrics.evaluated_cases}; skipped: {metrics.skipped_cases}")
+    typer.echo(f"  relevant-label cases: {metrics.relevant_cases}; no-known-relevance: {metrics.no_known_relevance_cases}")
+    typer.echo(f"  Top-1 accuracy (relevant-label cases): {_format_metric(metrics.top_1_accuracy)}")
+    typer.echo(f"  Recall@{top_k} (relevant-label cases): {_format_metric(metrics.recall_at_k)}")
+    typer.echo(f"  MRR (relevant-label cases): {_format_metric(metrics.mean_reciprocal_rank)}")
+    typer.echo(f"  no-result rate (evaluated cases): {_format_metric(metrics.no_result_rate)}")
+    typer.echo(f"  coverage (all dataset cases): {_format_metric(metrics.evaluation_coverage)}")
+
+
 @app.command()
 def analyze(
     failure_json: Annotated[Path, typer.Argument(exists=True, readable=True, help="Path to a CIFailure JSON file.")],
@@ -160,3 +179,24 @@ def analyze_log_file(
         typer.echo(result.model_dump_json(indent=2))
         return
     _print_report(result)
+
+
+@app.command()
+def benchmark(
+    top_k: Annotated[int, typer.Option("--top-k", min=1, help="Number of incidents to retrieve per case.")] = 3,
+    dataset: Annotated[
+        Path | None, typer.Option("--dataset", help="Path to a synthetic evaluation dataset JSON file.")
+    ] = None,
+) -> None:
+    """Benchmark local historical retrieval against labeled synthetic cases."""
+
+    root = Path(__file__).parents[2]
+    cases = load_evaluation_cases(dataset or root / "data" / "retrieval_evaluation.json")
+    incidents = load_incidents(root / "data" / "incidents.json")
+    report = run_retrieval_benchmark(
+        cases, incidents, top_k=top_k, semantic_retriever=SemanticIncidentRetriever(OllamaEmbeddingProvider())
+    )
+    typer.echo(f"CIRCA Retrieval Benchmark: {report.dataset_size} dataset cases; Top-K: {report.top_k}")
+    for method in report.methods:
+        typer.echo()
+        _print_benchmark_method(method, report.top_k)

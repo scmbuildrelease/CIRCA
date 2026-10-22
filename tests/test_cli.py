@@ -137,3 +137,28 @@ def test_unavailable_semantic_retrieval_preserves_keyword_analysis() -> None:
     assert result.exit_code == 0
     assert "Warning: semantic retrieval unavailable." in result.output
     assert "Category: hardware" in result.output
+
+
+def test_benchmark_prints_retrieval_metrics_with_semantic_availability() -> None:
+    with patch("circa.cli.run_retrieval_benchmark") as run:
+        from circa.benchmark import BenchmarkMethodResult, BenchmarkReport, RetrievalMetrics
+
+        metrics = RetrievalMetrics(
+            evaluated_cases=1, skipped_cases=0, relevant_cases=1, no_known_relevance_cases=0,
+            top_1_accuracy=1.0, recall_at_k=1.0, mean_reciprocal_rank=1.0,
+            no_result_rate=0.0, evaluation_coverage=1.0,
+        )
+        run.return_value = BenchmarkReport(
+            dataset_size=1, top_k=3,
+            methods=[
+                BenchmarkMethodResult(name="keyword", status="available", metrics=metrics),
+                BenchmarkMethodResult(name="semantic", status="unavailable", metrics=metrics),
+                BenchmarkMethodResult(name="combined", status="keyword fallback for 1 case(s)", metrics=metrics),
+            ],
+        )
+        result = runner.invoke(app, ["benchmark"])
+
+    assert result.exit_code == 0
+    assert "CIRCA Retrieval Benchmark: 1 dataset cases; Top-K: 3" in result.output
+    assert "Semantic retrieval (unavailable)" in result.output
+    assert "Recall@3 (relevant-label cases): 1.000" in result.output
