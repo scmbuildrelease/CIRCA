@@ -1,0 +1,5 @@
+2026-10-22T12:40:02Z [INFO] benchmark=attention_latency_p99
+2026-10-22T12:40:11Z [ERROR] PERFORMANCE THRESHOLD VIOLATION
+2026-10-22T12:40:11Z [ERROR] attention_latency_p99 actual=18.7 ms expected<=15.0 ms tolerance=5%
+2026-10-22T12:40:11Z [INFO] firmware_version=1.2.3 hardware revision=rev-b
+2026-10-22T12:40:12Z [FAILED] performance benchmark stage terminated with exit code 1

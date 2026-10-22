@@ -63,6 +63,32 @@ class LLMClassification(BaseModel):
     evidence: list[str] = Field(default_factory=list)
 
 
+class PerformanceMeasurement(BaseModel):
+    """A performance value extracted only from an explicit log comparison."""
+
+    metric: str = Field(min_length=1)
+    actual_value: float
+    expected_range: str = Field(min_length=1)
+    unit: str | None = None
+    tolerance: str | None = None
+
+
+class PerformanceAssessment(BaseModel):
+    """A deterministic, non-authoritative assessment of a performance failure."""
+
+    failure_type: Literal["performance_threshold_violation"]
+    candidate_cause: Literal[
+        "hardware_firmware_performance_drift", "possible_genuine_performance_regression", "undetermined"
+    ]
+    recommended_action: Literal["performance_threshold_recalibration"] | None = None
+    measurements: list[PerformanceMeasurement] = Field(default_factory=list)
+    test_details: list[str] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    missing_evidence: list[str] = Field(default_factory=list)
+    human_validation_required: Literal[True] = True
+    recommendation: str = Field(min_length=1)
+
+
 class AnalysisResult(BaseModel):
     """The structured result produced by deterministic local analysis."""
 
@@ -79,3 +105,4 @@ class AnalysisResult(BaseModel):
     final_category: CauseCategory | None = None
     final_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     final_root_cause: str | None = None
+    performance_assessment: PerformanceAssessment | None = None

@@ -52,6 +52,22 @@ def _print_report(result: AnalysisResult, heading: str = "CIRCA Analysis Report"
     typer.echo(f"Fingerprint: {result.fingerprint}")
     if result.llm_explanation:
         typer.echo(f"LLM explanation: {result.llm_explanation}")
+    if result.performance_assessment:
+        assessment = result.performance_assessment
+        typer.echo("Performance Assessment")
+        typer.echo(f"Failure type: {assessment.failure_type}")
+        typer.echo(f"Candidate cause (hypothesis): {assessment.candidate_cause}")
+        typer.echo(f"Recommended action: {assessment.recommended_action or 'none'}")
+        for measurement in assessment.measurements:
+            typer.echo(
+                f"Measurement: {measurement.metric}={measurement.actual_value:g} {measurement.unit or ''} "
+                f"(expected {measurement.expected_range})"
+            )
+        if assessment.missing_evidence:
+            typer.echo("Missing performance evidence:")
+            for item in assessment.missing_evidence:
+                typer.echo(f"- {item}")
+        typer.echo(f"Performance recommendation: {assessment.recommendation}")
 
 
 def _print_llm_classification(classification: LLMClassification) -> None:

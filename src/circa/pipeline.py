@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from .analyzer import analyze_failure
 from .log_parser import extract_failure_text
 from .models import AnalysisResult, CIFailure
+from .performance import analyze_performance_failure
 
 
 def analyze_log(raw_log: str, environment: Mapping[str, str] | None = None) -> AnalysisResult:
@@ -14,4 +15,5 @@ def analyze_log(raw_log: str, environment: Mapping[str, str] | None = None) -> A
 
     failure_text = extract_failure_text(raw_log) or "No recognized failure evidence in CI log."
     failure = CIFailure(failure_text=failure_text, environment=dict(environment or {}))
-    return analyze_failure(failure)
+    result = analyze_failure(failure)
+    return result.model_copy(update={"performance_assessment": analyze_performance_failure(raw_log)})
