@@ -4,7 +4,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 CauseCategory = Literal["hardware", "software", "network", "infrastructure", "unknown"]
 
 

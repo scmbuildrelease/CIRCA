@@ -20,8 +20,17 @@ Requires Python 3.12+.
 
 ```bash
 python -m pip install -e ".[dev]"
-pytest
+python -m ruff check .
+python -m pytest
+python -m pip wheel --no-deps --wheel-dir dist .
 ```
+
+## CI quality gate
+
+GitHub Actions runs on pull requests and pushes to `main` with Python 3.12. It
+installs the declared development extras, then runs Ruff, the deterministic test
+suite, and a wheel build. The standard checks do not require Ollama, embedding
+models, external LLM APIs, credentials, or private infrastructure.
 
 ## Retrieval benchmark
 

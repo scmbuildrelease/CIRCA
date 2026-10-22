@@ -42,7 +42,7 @@ class OllamaProvider:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self.timeout) as response:  # noqa: S310 -- configured local URL
+            with urlopen(request, timeout=self.timeout) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except (OSError, URLError, ValueError, json.JSONDecodeError):
             return None
@@ -69,7 +69,7 @@ class OllamaProvider:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self.timeout) as response:  # noqa: S310 -- configured local URL
+            with urlopen(request, timeout=self.timeout) as response:
                 body = json.loads(response.read().decode("utf-8"))
             response_text = body.get("response")
             if not isinstance(response_text, str):

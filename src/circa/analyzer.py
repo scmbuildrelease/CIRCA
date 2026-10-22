@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .fingerprint import failure_fingerprint, normalize_environment, normalize_failure_text
 from .knowledge import find_similar_incidents, load_incidents
-from .models import AnalysisResult, CIFailure, CauseCategory, HistoricalIncident
+from .models import AnalysisResult, CauseCategory, CIFailure, HistoricalIncident
 from .resources import data_path
 
 _TOKEN = re.compile(r"[a-z0-9_./-]+")

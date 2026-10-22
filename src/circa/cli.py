@@ -11,8 +11,8 @@ import typer
 from .analyzer import analyze_failure
 from .benchmark import BenchmarkMethodResult, load_evaluation_cases, run_retrieval_benchmark
 from .hybrid import apply_hybrid_scoring
-from .llm import classify_failure, explain_analysis
 from .knowledge import load_incidents
+from .llm import classify_failure, explain_analysis
 from .models import AnalysisResult, CIFailure, LLMClassification, SemanticIncidentMatch
 from .pipeline import analyze_log
 from .resources import data_path

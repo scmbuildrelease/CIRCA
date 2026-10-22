@@ -11,8 +11,8 @@ from pydantic import BaseModel, Field, ValidationError
 
 from .knowledge import find_similar_incidents, load_incidents
 from .models import CauseCategory, CIFailure, HistoricalIncident
-from .retrieval import retrieve_historical_candidates
 from .resources import data_path
+from .retrieval import retrieve_historical_candidates
 from .semantic import SemanticIncidentRetriever
 
 
@@ -69,7 +69,7 @@ def load_evaluation_cases(
     except json.JSONDecodeError as error:
         raise ValueError(f"Invalid evaluation dataset JSON in {source}: {error.msg}") from error
     if not isinstance(payload, dict) or not isinstance(payload.get("cases"), list):
-        raise ValueError(f"Invalid evaluation dataset {source}: expected an object with a 'cases' list.")
+        raise TypeError(f"Invalid evaluation dataset {source}: expected an object with a 'cases' list.")
 
     available_incidents = incidents if incidents is not None else load_incidents(data_path("incidents.json"))
     known_ids = {incident.id for incident in available_incidents}

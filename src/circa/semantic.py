@@ -41,7 +41,7 @@ class OllamaEmbeddingProvider:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self.timeout) as response:  # noqa: S310 -- configured local URL
+            with urlopen(request, timeout=self.timeout) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except (OSError, URLError, ValueError, json.JSONDecodeError):
             return None
