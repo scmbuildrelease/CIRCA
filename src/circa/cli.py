@@ -15,6 +15,7 @@ from .llm import classify_failure, explain_analysis
 from .knowledge import load_incidents
 from .models import AnalysisResult, CIFailure, LLMClassification, SemanticIncidentMatch
 from .pipeline import analyze_log
+from .resources import data_path
 from .semantic import OllamaEmbeddingProvider, SemanticIncidentRetriever
 
 app = typer.Typer(help="Analyze CI failures using local deterministic evidence.")
@@ -128,7 +129,7 @@ def analyze(
     result = apply_hybrid_scoring(deterministic_result, classification) if llm_classify else deterministic_result
     semantic_matches = None
     if semantic_retrieve:
-        incidents = load_incidents(Path(__file__).parents[2] / "data" / "incidents.json")
+        incidents = load_incidents(data_path("incidents.json"))
         semantic_matches = SemanticIncidentRetriever(OllamaEmbeddingProvider()).retrieve(failure, incidents)
     if llm_classify and classification is None:
         typer.echo("Warning: LLM classification unavailable.", err=True)
@@ -190,9 +191,8 @@ def benchmark(
 ) -> None:
     """Benchmark local historical retrieval against labeled synthetic cases."""
 
-    root = Path(__file__).parents[2]
-    cases = load_evaluation_cases(dataset or root / "data" / "retrieval_evaluation.json")
-    incidents = load_incidents(root / "data" / "incidents.json")
+    incidents = load_incidents(data_path("incidents.json"))
+    cases = load_evaluation_cases(dataset or data_path("retrieval_evaluation.json"), incidents)
     report = run_retrieval_benchmark(
         cases, incidents, top_k=top_k, semantic_retriever=SemanticIncidentRetriever(OllamaEmbeddingProvider())
     )

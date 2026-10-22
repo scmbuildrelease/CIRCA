@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 from circa.cli import app
 from circa.knowledge import load_incidents
 from circa.models import LLMClassification, SemanticIncidentMatch
+from circa.resources import data_path
 
 runner = CliRunner()
 
@@ -105,7 +106,7 @@ def test_analyze_without_llm_classify_does_not_call_classifier() -> None:
 def test_analyze_semantic_retrieve_prints_ranked_matches() -> None:
     example = Path(__file__).parents[1] / "examples" / "hardware_failure.json"
     semantic_match = SemanticIncidentMatch(
-        incident=load_incidents(Path(__file__).parents[1] / "data" / "incidents.json")[0],
+        incident=load_incidents(data_path("incidents.json"))[0],
         similarity=0.91,
     )
     with patch("circa.cli.SemanticIncidentRetriever.retrieve", return_value=[semantic_match]):
@@ -119,7 +120,7 @@ def test_analyze_semantic_retrieve_prints_ranked_matches() -> None:
 def test_analyze_semantic_retrieve_includes_json_matches() -> None:
     example = Path(__file__).parents[1] / "examples" / "hardware_failure.json"
     semantic_match = SemanticIncidentMatch(
-        incident=load_incidents(Path(__file__).parents[1] / "data" / "incidents.json")[0],
+        incident=load_incidents(data_path("incidents.json"))[0],
         similarity=0.91,
     )
     with patch("circa.cli.SemanticIncidentRetriever.retrieve", return_value=[semantic_match]):

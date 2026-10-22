@@ -27,3 +27,7 @@ testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/circa"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/circa/data/incidents.json" = "circa/data/incidents.json"
+"src/circa/data/retrieval_evaluation.json" = "circa/data/retrieval_evaluation.json"

@@ -1,12 +1,10 @@
-from pathlib import Path
-
 from circa.knowledge import find_similar_incidents, load_incidents
 from circa.models import CIFailure
+from circa.resources import data_path
 
 
 def test_historical_search_prefers_matching_category_and_environment() -> None:
-    data_path = Path(__file__).parents[1] / "data" / "incidents.json"
-    incidents = load_incidents(data_path)
+    incidents = load_incidents(data_path("incidents.json"))
     failure = CIFailure(
         failure_text="Dependency installation hit a package registry connection timeout",
         category="network",

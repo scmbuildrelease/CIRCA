@@ -1,10 +1,11 @@
 import json
-from pathlib import Path
 
 import pytest
 
 from circa.benchmark import EvaluationCase, calculate_retrieval_metrics, load_evaluation_cases, run_retrieval_benchmark
+from circa.knowledge import load_incidents
 from circa.models import HistoricalIncident
+from circa.resources import data_path
 from circa.semantic import SemanticIncidentRetriever
 
 
@@ -52,6 +53,18 @@ def test_metrics_mark_undefined_ranking_metrics_unavailable() -> None:
     assert metrics.mean_reciprocal_rank is None
 
 
+def test_empty_evaluation_dataset_has_undefined_metrics() -> None:
+    metrics = calculate_retrieval_metrics([], [], 3)
+
+    assert metrics.evaluated_cases == 0
+    assert metrics.skipped_cases == 0
+    assert metrics.top_1_accuracy is None
+    assert metrics.recall_at_k is None
+    assert metrics.mean_reciprocal_rank is None
+    assert metrics.no_result_rate is None
+    assert metrics.evaluation_coverage is None
+
+
 def test_benchmark_compares_existing_keyword_semantic_and_combined_retrieval() -> None:
     cases = [_case("one", ["disk"])]
     incidents = [_incident("disk", ["disk", "full"])]
@@ -81,10 +94,53 @@ def test_benchmark_marks_semantic_unavailable_and_combined_fallback() -> None:
 
 
 def test_evaluation_dataset_is_synthetic_and_documented() -> None:
-    path = Path(__file__).parents[1] / "data" / "retrieval_evaluation.json"
+    path = data_path("retrieval_evaluation.json")
     payload = json.loads(path.read_text())
     cases = load_evaluation_cases(path)
 
     assert "labeling_conventions" in payload
     assert 30 <= len(cases) <= 50
     assert all(case.synthetic for case in cases)
+
+
+def test_packaged_data_runs_keyword_benchmark_without_semantic_backend() -> None:
+    cases = load_evaluation_cases(data_path("retrieval_evaluation.json"))
+    report = run_retrieval_benchmark(cases, load_incidents(data_path("incidents.json")), semantic_retriever=None)
+
+    assert report.dataset_size == 35
+    assert report.methods[0].metrics.evaluated_cases == 35
+    assert report.methods[1].status == "unavailable"
+    assert report.methods[2].status == "keyword fallback for 35 case(s)"
+
+
+def test_dataset_validation_rejects_duplicate_case_ids(tmp_path) -> None:
+    dataset = tmp_path / "duplicate.json"
+    dataset.write_text(json.dumps({"cases": [_case("same", [] ).model_dump(), _case("same", []).model_dump()]}))
+
+    with pytest.raises(ValueError, match="Duplicate evaluation case ID 'same'"):
+        load_evaluation_cases(dataset, [])
+
+
+def test_dataset_validation_rejects_unknown_incident_reference(tmp_path) -> None:
+    dataset = tmp_path / "unknown-reference.json"
+    record = _case("unknown-reference", ["missing-incident"]).model_dump()
+    dataset.write_text(json.dumps({"cases": [record]}))
+
+    with pytest.raises(ValueError, match=r"unknown historical incident ID\(s\): missing-incident"):
+        load_evaluation_cases(dataset, [_incident("known", [])])
+
+
+def test_dataset_validation_accepts_empty_relevance_and_reports_malformed_records(tmp_path) -> None:
+    valid = tmp_path / "ambiguous.json"
+    valid.write_text(json.dumps({"cases": [_case("ambiguous", []).model_dump()]}))
+    assert load_evaluation_cases(valid, [])[0].relevant_incident_ids == []
+
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text(json.dumps({"cases": [{"id": "bad", "failure_text": "x", "expected_category": "invalid"}]}))
+    with pytest.raises(ValueError, match="Invalid evaluation case at index 0"):
+        load_evaluation_cases(malformed, [])
+
+    invalid_json = tmp_path / "invalid.json"
+    invalid_json.write_text("{")
+    with pytest.raises(ValueError, match="Invalid evaluation dataset JSON"):
+        load_evaluation_cases(invalid_json, [])

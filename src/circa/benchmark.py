@@ -7,11 +7,12 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
-from .knowledge import find_similar_incidents
+from .knowledge import find_similar_incidents, load_incidents
 from .models import CauseCategory, CIFailure, HistoricalIncident
 from .retrieval import retrieve_historical_candidates
+from .resources import data_path
 from .semantic import SemanticIncidentRetriever
 
 
@@ -56,11 +57,39 @@ class BenchmarkReport(BaseModel):
     methods: list[BenchmarkMethodResult]
 
 
-def load_evaluation_cases(path: str | Path) -> list[EvaluationCase]:
-    """Load the version-controlled synthetic retrieval evaluation dataset."""
+def load_evaluation_cases(
+    path: str | Path,
+    incidents: Iterable[HistoricalIncident] | None = None,
+) -> list[EvaluationCase]:
+    """Load and validate synthetic cases against the available incident IDs."""
 
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    return [EvaluationCase.model_validate(record) for record in payload["cases"]]
+    source = Path(path)
+    try:
+        payload = json.loads(source.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Invalid evaluation dataset JSON in {source}: {error.msg}") from error
+    if not isinstance(payload, dict) or not isinstance(payload.get("cases"), list):
+        raise ValueError(f"Invalid evaluation dataset {source}: expected an object with a 'cases' list.")
+
+    available_incidents = incidents if incidents is not None else load_incidents(data_path("incidents.json"))
+    known_ids = {incident.id for incident in available_incidents}
+    cases: list[EvaluationCase] = []
+    seen_ids: set[str] = set()
+    for index, record in enumerate(payload["cases"]):
+        try:
+            case = EvaluationCase.model_validate(record)
+        except ValidationError as error:
+            raise ValueError(f"Invalid evaluation case at index {index} in {source}: {error}") from error
+        if case.id in seen_ids:
+            raise ValueError(f"Duplicate evaluation case ID '{case.id}' in {source}.")
+        unknown_ids = sorted(set(case.relevant_incident_ids) - known_ids)
+        if unknown_ids:
+            raise ValueError(
+                f"Evaluation case '{case.id}' references unknown historical incident ID(s): {', '.join(unknown_ids)}."
+            )
+        seen_ids.add(case.id)
+        cases.append(case)
+    return cases
 
 
 def calculate_retrieval_metrics(

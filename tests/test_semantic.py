@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -7,6 +6,7 @@ import pytest
 from circa.analyzer import analyze_failure
 from circa.knowledge import load_incidents
 from circa.models import CIFailure, HistoricalIncident
+from circa.resources import data_path
 from circa.semantic import OllamaEmbeddingProvider, SemanticIncidentRetriever, cosine_similarity
 
 
@@ -90,7 +90,7 @@ def test_ollama_embedding_provider_fails_gracefully_when_unavailable() -> None:
 
 
 def test_unavailable_semantic_retrieval_does_not_change_keyword_analysis() -> None:
-    incidents = load_incidents(Path(__file__).parents[1] / "data" / "incidents.json")
+    incidents = load_incidents(data_path("incidents.json"))
     failure = CIFailure(
         failure_text="Dependency installation hit a package registry connection timeout",
         environment={"network": "external"},

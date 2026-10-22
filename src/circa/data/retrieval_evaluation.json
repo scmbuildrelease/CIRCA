@@ -1,5 +1,5 @@
 {
-  "labeling_conventions": "All cases are synthetic. relevant_incident_ids names only incidents in data/incidents.json that directly support the query. Empty lists identify ambiguous or unsupported cases and are excluded from Top-1, Recall@K, and MRR.",
+  "labeling_conventions": "All cases are synthetic. relevant_incident_ids names only incidents in circa/data/incidents.json that directly support the query. Empty lists identify ambiguous or unsupported cases and are excluded from Top-1, Recall@K, and MRR.",
   "cases": [
     {"id":"eval-hw-01","failure_text":"Compiler stopped: no free blocks remain on the Linux worker.","expected_category":"hardware","relevant_incident_ids":["synthetic-hardware-disk-001"],"relevance_note":"Paraphrases exhausted build-worker storage.","synthetic":true},
     {"id":"eval-hw-02","failure_text":"Build output cannot be written because the agent filesystem is full.","expected_category":"hardware","relevant_incident_ids":["synthetic-hardware-disk-001"],"relevance_note":"Filesystem capacity maps to the disk-full incident.","synthetic":true},

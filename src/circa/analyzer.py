@@ -10,6 +10,7 @@ from pathlib import Path
 from .fingerprint import failure_fingerprint, normalize_environment, normalize_failure_text
 from .knowledge import find_similar_incidents, load_incidents
 from .models import AnalysisResult, CIFailure, CauseCategory, HistoricalIncident
+from .resources import data_path
 
 _TOKEN = re.compile(r"[a-z0-9_./-]+")
 _OWNERS = {
@@ -43,7 +44,7 @@ def _environment_matches(failure: CIFailure, incident: HistoricalIncident) -> in
 
 
 def _data_path() -> Path:
-    return Path(__file__).parents[2] / "data" / "incidents.json"
+    return data_path("incidents.json")
 
 
 def analyze_failure(

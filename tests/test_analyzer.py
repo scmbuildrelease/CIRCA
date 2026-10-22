@@ -1,13 +1,12 @@
-from pathlib import Path
-
 from circa.analyzer import analyze_failure
 from circa.fingerprint import failure_fingerprint
 from circa.knowledge import load_incidents
 from circa.models import CIFailure
+from circa.resources import data_path
 
 
 def test_analyzer_uses_historical_match_for_network_failure() -> None:
-    incidents = load_incidents(Path(__file__).parents[1] / "data" / "incidents.json")
+    incidents = load_incidents(data_path("incidents.json"))
     failure = CIFailure(
         failure_text="Dependency installation hit a package registry connection timeout",
         environment={"network": "external"},

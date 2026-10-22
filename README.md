@@ -25,7 +25,7 @@ pytest
 
 ## Retrieval benchmark
 
-The version-controlled `data/retrieval_evaluation.json` dataset contains only
+The version-controlled packaged `circa/data/retrieval_evaluation.json` dataset contains only
 synthetic cases. Labels identify historical incident IDs only when the local
 incident dataset supports that relationship; ambiguous cases have no relevance
 label and are excluded from Top-1, Recall@K, and MRR denominators.
@@ -41,3 +41,6 @@ when available. If it is unavailable, semantic metrics are marked unavailable
 and combined results explicitly report keyword fallback; no cloud services are
 used. Top-1, Recall@K, and MRR use only cases with known relevant incidents;
 no-result rate uses evaluated cases and coverage uses all dataset cases.
+
+The incident and evaluation datasets ship with the CIRCA wheel, so `circa
+benchmark` works after a normal installation as well as an editable install.
