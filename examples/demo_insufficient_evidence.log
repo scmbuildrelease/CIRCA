@@ -1,0 +1,4 @@
+2026-10-22T11:02:01Z [INFO] Starting integration test stage
+2026-10-22T11:02:15Z [WARN] remote worker exited before emitting a diagnostic line
+2026-10-22T11:02:16Z [INFO] CI runner reported exit status 1
+2026-10-22T11:02:16Z [INFO] Saving partial test artifacts

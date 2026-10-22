@@ -32,6 +32,70 @@ installs the declared development extras, then runs Ruff, the deterministic test
 suite, and a wheel build. The standard checks do not require Ollama, embedding
 models, external LLM APIs, credentials, or private infrastructure.
 
+## End-to-end demo
+
+From the repository root, install the local development package once:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+The following demo parses a sanitized raw build log, fingerprints the extracted
+failure, searches the bundled synthetic incident history, and prints the
+deterministic analysis. It does not require Ollama, network access, credentials,
+or any external service.
+
+```bash
+circa analyze-log examples/demo_disk_full.log
+```
+
+Verified output:
+
+```text
+CIRCA Analysis Report
+Category: hardware
+Confidence: 0.95
+Root cause: Build failed because the worker disk had no space left for compiler output.
+Evidence:
+- Historical incident synthetic-hardware-disk-001 shares 8 keyword(s) and 0 environment value(s).
+- Failure text contains filesystem.
+Historical matches:
+- synthetic-hardware-disk-001
+Recommendation: Free disk space and investigate the worker's cleanup policy.
+Owner: hardware-ops
+Fingerprint: 8d765a3ffda765b075f77658080166de73d6c627774e276bf5d8ae38b6a0bacd
+```
+
+The second sanitized log intentionally lacks a recognizable failure signature.
+It demonstrates that CIRCA does not overstate confidence when the available
+evidence cannot support a historical match or deterministic classification.
+
+```bash
+circa analyze-log examples/demo_insufficient_evidence.log
+```
+
+Verified output:
+
+```text
+CIRCA Analysis Report
+Category: unknown
+Confidence: 0.00
+Root cause: Insufficient deterministic evidence to identify a root cause.
+Evidence:
+- No strong deterministic evidence.
+Historical matches:
+- None
+Recommendation: Collect additional failure output and environment details, then retry analysis.
+Owner: unknown
+Fingerprint: 0c1462cd6701fa8cc21e731ad46f0c28c1bfc85d917ea5c467266a8339bf5ad1
+```
+
+These examples and their historical incidents are synthetic. CIRCA's
+deterministic results are limited by the available log evidence and bundled
+incident data; they are not a claim of production incident-diagnosis accuracy.
+Optional local Ollama explanation, classification, and semantic retrieval are
+not used by this demo.
+
 ## Retrieval benchmark
 
 The version-controlled packaged `circa/data/retrieval_evaluation.json` dataset contains only

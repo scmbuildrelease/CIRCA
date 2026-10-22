@@ -1,0 +1,5 @@
+2026-10-22T10:14:03Z [INFO] Preparing Linux build worker ci-linux-17
+2026-10-22T10:14:08Z [INFO] Compiling 184 project files
+2026-10-22T10:14:16Z [ERROR] linker output could not be written: no space left on device
+2026-10-22T10:14:16Z [ERROR] worker filesystem is full while creating compiler output
+2026-10-22T10:14:16Z [FAILED] build stage terminated with exit code 1
