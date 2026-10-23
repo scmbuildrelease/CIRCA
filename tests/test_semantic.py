@@ -81,7 +81,9 @@ def test_semantic_retrieval_returns_empty_for_no_incidents() -> None:
 def test_semantic_retrieval_returns_none_when_embedding_backend_is_unavailable() -> None:
     provider = StaticEmbeddingProvider(None)
 
-    assert SemanticIncidentRetriever(provider).retrieve(CIFailure(failure_text="failure"), [_incident("incident")]) is None
+    assert (
+        SemanticIncidentRetriever(provider).retrieve(CIFailure(failure_text="failure"), [_incident("incident")]) is None
+    )
 
 
 def test_ollama_embedding_provider_fails_gracefully_when_unavailable() -> None:
@@ -100,3 +102,10 @@ def test_unavailable_semantic_retrieval_does_not_change_keyword_analysis() -> No
 
     assert result.category == "network"
     assert result.matched_incident_ids == ["synthetic-network-timeout-005"]
+
+
+def test_ollama_embedding_provider_never_opens_non_http_urls() -> None:
+    with patch("circa.semantic.urlopen") as mocked_urlopen:
+        assert OllamaEmbeddingProvider(url="file:///etc/passwd").embed(["text"]) is None
+
+    mocked_urlopen.assert_not_called()

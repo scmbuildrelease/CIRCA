@@ -19,8 +19,13 @@ class StaticEmbeddingProvider:
 
 def _incident(identifier: str, keywords: list[str]) -> HistoricalIncident:
     return HistoricalIncident(
-        id=identifier, title=identifier, category="hardware", summary=identifier,
-        keywords=keywords, recommendation="Investigate.", synthetic=True,
+        id=identifier,
+        title=identifier,
+        category="hardware",
+        summary=identifier,
+        keywords=keywords,
+        recommendation="Investigate.",
+        synthetic=True,
     )
 
 
@@ -115,7 +120,7 @@ def test_packaged_data_runs_keyword_benchmark_without_semantic_backend() -> None
 
 def test_dataset_validation_rejects_duplicate_case_ids(tmp_path) -> None:
     dataset = tmp_path / "duplicate.json"
-    dataset.write_text(json.dumps({"cases": [_case("same", [] ).model_dump(), _case("same", []).model_dump()]}))
+    dataset.write_text(json.dumps({"cases": [_case("same", []).model_dump(), _case("same", []).model_dump()]}))
 
     with pytest.raises(ValueError, match="Duplicate evaluation case ID 'same'"):
         load_evaluation_cases(dataset, [])

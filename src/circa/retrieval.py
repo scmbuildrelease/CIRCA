@@ -6,7 +6,7 @@ from collections.abc import Iterable
 
 from .knowledge import find_similar_incident_matches
 from .models import CIFailure, HistoricalIncident, HistoricalIncidentCandidate
-from .semantic import SemanticIncidentRetriever
+from .semantic import SemanticRetriever
 
 _RRF_CONSTANT = 60
 
@@ -15,7 +15,7 @@ def retrieve_historical_candidates(
     failure: CIFailure,
     incidents: Iterable[HistoricalIncident],
     *,
-    semantic_retriever: SemanticIncidentRetriever | None = None,
+    semantic_retriever: SemanticRetriever | None = None,
     keyword_limit: int = 3,
     semantic_limit: int = 3,
     limit: int = 3,
@@ -48,21 +48,21 @@ def retrieve_historical_candidates(
             fusion_score=1 / (_RRF_CONSTANT + rank),
             sources=["keyword"],
         )
-    for rank, match in enumerate(semantic_matches, start=1):
-        existing = candidates.get(match.incident.id)
+    for rank, semantic_match in enumerate(semantic_matches, start=1):
+        existing = candidates.get(semantic_match.incident.id)
         semantic_score = 1 / (_RRF_CONSTANT + rank)
         if existing is None:
-            candidates[match.incident.id] = HistoricalIncidentCandidate(
-                incident=match.incident,
-                semantic_similarity=match.similarity,
+            candidates[semantic_match.incident.id] = HistoricalIncidentCandidate(
+                incident=semantic_match.incident,
+                semantic_similarity=semantic_match.similarity,
                 semantic_rank=rank,
                 fusion_score=semantic_score,
                 sources=["semantic"],
             )
             continue
-        candidates[match.incident.id] = existing.model_copy(
+        candidates[semantic_match.incident.id] = existing.model_copy(
             update={
-                "semantic_similarity": match.similarity,
+                "semantic_similarity": semantic_match.similarity,
                 "semantic_rank": rank,
                 "fusion_score": existing.fusion_score + semantic_score,
                 "sources": [*existing.sources, "semantic"],

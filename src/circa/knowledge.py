@@ -15,9 +15,39 @@ _TOKEN = re.compile(r"[a-z0-9_./-]+")
 # in most failures and incident summaries, so they must not count as overlap.
 _STOPWORDS = frozenset(
     {
-        "a", "after", "an", "and", "are", "as", "at", "be", "because", "been", "by", "could", "error",
-        "failed", "failure", "for", "from", "has", "in", "is", "it", "its", "of", "on", "or", "the",
-        "this", "to", "was", "were", "when", "while", "with",
+        "a",
+        "after",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "because",
+        "been",
+        "by",
+        "could",
+        "error",
+        "failed",
+        "failure",
+        "for",
+        "from",
+        "has",
+        "in",
+        "is",
+        "it",
+        "its",
+        "of",
+        "on",
+        "or",
+        "the",
+        "this",
+        "to",
+        "was",
+        "were",
+        "when",
+        "while",
+        "with",
     }
 )
 
@@ -50,11 +80,7 @@ def _score(failure: CIFailure, incident: HistoricalIncident) -> float:
 
     failure_environment = dict(normalize_environment(failure.environment))
     incident_environment = dict(normalize_environment(incident.environment))
-    score += sum(
-        0.5
-        for key, value in failure_environment.items()
-        if incident_environment.get(key) == value
-    )
+    score += sum(0.5 for key, value in failure_environment.items() if incident_environment.get(key) == value)
     return score
 
 
@@ -68,10 +94,7 @@ def find_similar_incident_matches(
     if limit < 1:
         return []
 
-    scored = (
-        (incident, _score(failure, incident))
-        for incident in incidents
-    )
+    scored = ((incident, _score(failure, incident)) for incident in incidents)
     matches = [KeywordIncidentMatch(incident=incident, score=score) for incident, score in scored if score > 0]
     matches.sort(key=lambda match: (-match.score, match.incident.id))
     return matches[:limit]

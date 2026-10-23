@@ -6,9 +6,7 @@ HISTORICAL_MATCH_BONUS = 0.03
 LLM_AGREEMENT_WEIGHT = 0.05
 
 
-def apply_hybrid_scoring(
-    result: AnalysisResult, llm_classification: LLMClassification | None
-) -> AnalysisResult:
+def apply_hybrid_scoring(result: AnalysisResult, llm_classification: LLMClassification | None) -> AnalysisResult:
     """Attach an independent LLM opinion without overriding deterministic analysis.
 
     Historical matches add 0.03 confidence. Matching LLM categories add up to

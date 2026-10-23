@@ -1,40 +1,285 @@
 {
   "labeling_conventions": "All cases are synthetic. relevant_incident_ids names only incidents in circa/data/incidents.json that directly support the query. Empty lists identify ambiguous or unsupported cases and are excluded from Top-1, Recall@K, and MRR.",
   "cases": [
-    {"id":"eval-hw-01","failure_text":"Compiler stopped: no free blocks remain on the Linux worker.","expected_category":"hardware","relevant_incident_ids":["synthetic-hardware-disk-001"],"relevance_note":"Paraphrases exhausted build-worker storage.","synthetic":true},
-    {"id":"eval-hw-02","failure_text":"Build output cannot be written because the agent filesystem is full.","expected_category":"hardware","relevant_incident_ids":["synthetic-hardware-disk-001"],"relevance_note":"Filesystem capacity maps to the disk-full incident.","synthetic":true},
-    {"id":"eval-hw-03","failure_text":"cc1 was killed after the test executor exhausted RAM.","expected_category":"hardware","relevant_incident_ids":["synthetic-hardware-memory-002"],"relevance_note":"Memory exhaustion supports the OOM incident.","synthetic":true},
-    {"id":"eval-hw-04","failure_text":"OOM killer terminated the integration-test worker.","expected_category":"hardware","relevant_incident_ids":["synthetic-hardware-memory-002"],"relevance_note":"Explicit OOM termination.","synthetic":true},
-    {"id":"eval-hw-05","failure_text":"The bare-metal runner has no space left for generated objects.","expected_category":"hardware","relevant_incident_ids":["synthetic-hardware-disk-001"],"relevance_note":"Storage exhaustion on a worker.","synthetic":true},
-    {"id":"eval-hw-06","failure_text":"Tests died when the machine ran out of available memory.","expected_category":"hardware","relevant_incident_ids":["synthetic-hardware-memory-002"],"relevance_note":"Worker memory exhaustion.","synthetic":true},
-    {"id":"eval-hw-07","failure_text":"The build node rebooted unexpectedly during compilation.","expected_category":"hardware","relevant_incident_ids":[],"relevance_note":"No existing historical incident establishes a reboot cause.","synthetic":true},
-    {"id":"eval-sw-01","failure_text":"AssertionError: expected payload status 200, got 500.","expected_category":"software","relevant_incident_ids":["synthetic-software-assertion-003"],"relevance_note":"A direct unit-test assertion failure.","synthetic":true},
-    {"id":"eval-sw-02","failure_text":"Regression test reports expected true but received false.","expected_category":"software","relevant_incident_ids":["synthetic-software-assertion-003"],"relevance_note":"Behavior mismatch in a test.","synthetic":true},
-    {"id":"eval-sw-03","failure_text":"Python test setup crashed: ModuleNotFoundError: No module named 'widget'.","expected_category":"software","relevant_incident_ids":["synthetic-software-import-004"],"relevance_note":"Missing Python package.","synthetic":true},
-    {"id":"eval-sw-04","failure_text":"ImportError while loading a required test dependency.","expected_category":"software","relevant_incident_ids":["synthetic-software-import-004"],"relevance_note":"Dependency import failure.","synthetic":true},
-    {"id":"eval-sw-05","failure_text":"A changed API broke the expected value in the unit suite.","expected_category":"software","relevant_incident_ids":["synthetic-software-assertion-003"],"relevance_note":"Supported as an assertion-style regression.","synthetic":true},
-    {"id":"eval-sw-06","failure_text":"pytest collection failed because an optional module was absent.","expected_category":"software","relevant_incident_ids":["synthetic-software-import-004"],"relevance_note":"Absent module is supported by the dependency incident.","synthetic":true},
-    {"id":"eval-sw-07","failure_text":"Build failed with a compiler syntax error in a newly changed file.","expected_category":"software","relevant_incident_ids":[],"relevance_note":"No syntax-error historical incident exists.","synthetic":true},
-    {"id":"eval-net-01","failure_text":"pip waited too long for the public package index.","expected_category":"network","relevant_incident_ids":["synthetic-network-timeout-005"],"relevance_note":"Package-registry timeout paraphrase.","synthetic":true},
-    {"id":"eval-net-02","failure_text":"Dependency download timed out while contacting the registry.","expected_category":"network","relevant_incident_ids":["synthetic-network-timeout-005"],"relevance_note":"Direct registry timeout.","synthetic":true},
-    {"id":"eval-net-03","failure_text":"Temporary failure in name resolution for the internal test host.","expected_category":"network","relevant_incident_ids":["synthetic-network-dns-006"],"relevance_note":"DNS resolution failure.","synthetic":true},
-    {"id":"eval-net-04","failure_text":"Worker cannot resolve artifacts.internal.example.","expected_category":"network","relevant_incident_ids":["synthetic-network-dns-006"],"relevance_note":"Hostname lookup failure.","synthetic":true},
-    {"id":"eval-net-05","failure_text":"Connection to the dependency mirror exceeded its timeout.","expected_category":"network","relevant_incident_ids":["synthetic-network-timeout-005"],"relevance_note":"External dependency connection timeout.","synthetic":true},
-    {"id":"eval-net-06","failure_text":"The resolver returned NXDOMAIN for the integration endpoint.","expected_category":"network","relevant_incident_ids":["synthetic-network-dns-006"],"relevance_note":"A name-resolution condition.","synthetic":true},
-    {"id":"eval-net-07","failure_text":"A remote API returned HTTP 429 during an end-to-end test.","expected_category":"network","relevant_incident_ids":[],"relevance_note":"No rate-limit incident is in the historical dataset.","synthetic":true},
-    {"id":"eval-inf-01","failure_text":"Job could not start because the requested container image was missing.","expected_category":"infrastructure","relevant_incident_ids":["synthetic-infrastructure-image-007"],"relevance_note":"Unavailable runner image.","synthetic":true},
-    {"id":"eval-inf-02","failure_text":"Provisioning failed: selected runner image is unavailable.","expected_category":"infrastructure","relevant_incident_ids":["synthetic-infrastructure-image-007"],"relevance_note":"Direct image provisioning failure.","synthetic":true},
-    {"id":"eval-inf-03","failure_text":"Artifact publishing returned 503 Service Unavailable.","expected_category":"infrastructure","relevant_incident_ids":["synthetic-infrastructure-service-008"],"relevance_note":"Artifact service outage.","synthetic":true},
-    {"id":"eval-inf-04","failure_text":"Upload of build results failed because the artifact store was down.","expected_category":"infrastructure","relevant_incident_ids":["synthetic-infrastructure-service-008"],"relevance_note":"Internal artifact service failure.","synthetic":true},
-    {"id":"eval-inf-05","failure_text":"Container runner provisioning cannot locate its configured image version.","expected_category":"infrastructure","relevant_incident_ids":["synthetic-infrastructure-image-007"],"relevance_note":"Configured runner image unavailable.","synthetic":true},
-    {"id":"eval-inf-06","failure_text":"Internal package artifact upload received an unavailable-service response.","expected_category":"infrastructure","relevant_incident_ids":["synthetic-infrastructure-service-008"],"relevance_note":"Artifact service availability issue.","synthetic":true},
-    {"id":"eval-inf-07","failure_text":"Queue capacity delayed the build for two hours.","expected_category":"infrastructure","relevant_incident_ids":[],"relevance_note":"No queue-capacity historical incident exists.","synthetic":true},
-    {"id":"eval-unk-01","failure_text":"The job ended unexpectedly with exit status 1.","expected_category":"unknown","relevant_incident_ids":[],"relevance_note":"Insufficient evidence for an incident label.","synthetic":true},
-    {"id":"eval-unk-02","failure_text":"A downstream step reported failure without diagnostic output.","expected_category":"unknown","relevant_incident_ids":[],"relevance_note":"No supported historical match.","synthetic":true},
-    {"id":"eval-unk-03","failure_text":"Build was cancelled by an unspecified external action.","expected_category":"unknown","relevant_incident_ids":[],"relevance_note":"Cancellation cause is not represented historically.","synthetic":true},
-    {"id":"eval-unk-04","failure_text":"The pipeline stopped after an unclassified warning.","expected_category":"unknown","relevant_incident_ids":[],"relevance_note":"Warning does not support an incident label.","synthetic":true},
-    {"id":"eval-unk-05","failure_text":"Intermittent failure observed; retry later.","expected_category":"unknown","relevant_incident_ids":[],"relevance_note":"Ambiguous intermittent report.","synthetic":true},
-    {"id":"eval-unk-06","failure_text":"A test stage emitted no logs before failing.","expected_category":"unknown","relevant_incident_ids":[],"relevance_note":"No useful retrieval evidence.","synthetic":true},
-    {"id":"eval-unk-07","failure_text":"System reported an unspecified internal error.","expected_category":"unknown","relevant_incident_ids":[],"relevance_note":"Unsupported by the local incident data.","synthetic":true}
+    {
+      "id": "eval-hw-01",
+      "failure_text": "Compiler stopped: no free blocks remain on the Linux worker.",
+      "expected_category": "hardware",
+      "relevant_incident_ids": ["synthetic-hardware-disk-001"],
+      "relevance_note": "Paraphrases exhausted build-worker storage.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-hw-02",
+      "failure_text": "Build output cannot be written because the agent filesystem is full.",
+      "expected_category": "hardware",
+      "relevant_incident_ids": ["synthetic-hardware-disk-001"],
+      "relevance_note": "Filesystem capacity maps to the disk-full incident.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-hw-03",
+      "failure_text": "cc1 was killed after the test executor exhausted RAM.",
+      "expected_category": "hardware",
+      "relevant_incident_ids": ["synthetic-hardware-memory-002"],
+      "relevance_note": "Memory exhaustion supports the OOM incident.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-hw-04",
+      "failure_text": "OOM killer terminated the integration-test worker.",
+      "expected_category": "hardware",
+      "relevant_incident_ids": ["synthetic-hardware-memory-002"],
+      "relevance_note": "Explicit OOM termination.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-hw-05",
+      "failure_text": "The bare-metal runner has no space left for generated objects.",
+      "expected_category": "hardware",
+      "relevant_incident_ids": ["synthetic-hardware-disk-001"],
+      "relevance_note": "Storage exhaustion on a worker.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-hw-06",
+      "failure_text": "Tests died when the machine ran out of available memory.",
+      "expected_category": "hardware",
+      "relevant_incident_ids": ["synthetic-hardware-memory-002"],
+      "relevance_note": "Worker memory exhaustion.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-hw-07",
+      "failure_text": "The build node rebooted unexpectedly during compilation.",
+      "expected_category": "hardware",
+      "relevant_incident_ids": [],
+      "relevance_note": "No existing historical incident establishes a reboot cause.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-sw-01",
+      "failure_text": "AssertionError: expected payload status 200, got 500.",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-assertion-003"],
+      "relevance_note": "A direct unit-test assertion failure.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-sw-02",
+      "failure_text": "Regression test reports expected true but received false.",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-assertion-003"],
+      "relevance_note": "Behavior mismatch in a test.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-sw-03",
+      "failure_text": "Python test setup crashed: ModuleNotFoundError: No module named 'widget'.",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-import-004"],
+      "relevance_note": "Missing Python package.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-sw-04",
+      "failure_text": "ImportError while loading a required test dependency.",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-import-004"],
+      "relevance_note": "Dependency import failure.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-sw-05",
+      "failure_text": "A changed API broke the expected value in the unit suite.",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-assertion-003"],
+      "relevance_note": "Supported as an assertion-style regression.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-sw-06",
+      "failure_text": "pytest collection failed because an optional module was absent.",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-import-004"],
+      "relevance_note": "Absent module is supported by the dependency incident.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-sw-07",
+      "failure_text": "Build failed with a compiler syntax error in a newly changed file.",
+      "expected_category": "software",
+      "relevant_incident_ids": [],
+      "relevance_note": "No syntax-error historical incident exists.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-net-01",
+      "failure_text": "pip waited too long for the public package index.",
+      "expected_category": "network",
+      "relevant_incident_ids": ["synthetic-network-timeout-005"],
+      "relevance_note": "Package-registry timeout paraphrase.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-net-02",
+      "failure_text": "Dependency download timed out while contacting the registry.",
+      "expected_category": "network",
+      "relevant_incident_ids": ["synthetic-network-timeout-005"],
+      "relevance_note": "Direct registry timeout.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-net-03",
+      "failure_text": "Temporary failure in name resolution for the internal test host.",
+      "expected_category": "network",
+      "relevant_incident_ids": ["synthetic-network-dns-006"],
+      "relevance_note": "DNS resolution failure.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-net-04",
+      "failure_text": "Worker cannot resolve artifacts.internal.example.",
+      "expected_category": "network",
+      "relevant_incident_ids": ["synthetic-network-dns-006"],
+      "relevance_note": "Hostname lookup failure.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-net-05",
+      "failure_text": "Connection to the dependency mirror exceeded its timeout.",
+      "expected_category": "network",
+      "relevant_incident_ids": ["synthetic-network-timeout-005"],
+      "relevance_note": "External dependency connection timeout.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-net-06",
+      "failure_text": "The resolver returned NXDOMAIN for the integration endpoint.",
+      "expected_category": "network",
+      "relevant_incident_ids": ["synthetic-network-dns-006"],
+      "relevance_note": "A name-resolution condition.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-net-07",
+      "failure_text": "A remote API returned HTTP 429 during an end-to-end test.",
+      "expected_category": "network",
+      "relevant_incident_ids": [],
+      "relevance_note": "No rate-limit incident is in the historical dataset.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-inf-01",
+      "failure_text": "Job could not start because the requested container image was missing.",
+      "expected_category": "infrastructure",
+      "relevant_incident_ids": ["synthetic-infrastructure-image-007"],
+      "relevance_note": "Unavailable runner image.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-inf-02",
+      "failure_text": "Provisioning failed: selected runner image is unavailable.",
+      "expected_category": "infrastructure",
+      "relevant_incident_ids": ["synthetic-infrastructure-image-007"],
+      "relevance_note": "Direct image provisioning failure.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-inf-03",
+      "failure_text": "Artifact publishing returned 503 Service Unavailable.",
+      "expected_category": "infrastructure",
+      "relevant_incident_ids": ["synthetic-infrastructure-service-008"],
+      "relevance_note": "Artifact service outage.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-inf-04",
+      "failure_text": "Upload of build results failed because the artifact store was down.",
+      "expected_category": "infrastructure",
+      "relevant_incident_ids": ["synthetic-infrastructure-service-008"],
+      "relevance_note": "Internal artifact service failure.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-inf-05",
+      "failure_text": "Container runner provisioning cannot locate its configured image version.",
+      "expected_category": "infrastructure",
+      "relevant_incident_ids": ["synthetic-infrastructure-image-007"],
+      "relevance_note": "Configured runner image unavailable.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-inf-06",
+      "failure_text": "Internal package artifact upload received an unavailable-service response.",
+      "expected_category": "infrastructure",
+      "relevant_incident_ids": ["synthetic-infrastructure-service-008"],
+      "relevance_note": "Artifact service availability issue.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-inf-07",
+      "failure_text": "Queue capacity delayed the build for two hours.",
+      "expected_category": "infrastructure",
+      "relevant_incident_ids": [],
+      "relevance_note": "No queue-capacity historical incident exists.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-unk-01",
+      "failure_text": "The job ended unexpectedly with exit status 1.",
+      "expected_category": "unknown",
+      "relevant_incident_ids": [],
+      "relevance_note": "Insufficient evidence for an incident label.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-unk-02",
+      "failure_text": "A downstream step reported failure without diagnostic output.",
+      "expected_category": "unknown",
+      "relevant_incident_ids": [],
+      "relevance_note": "No supported historical match.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-unk-03",
+      "failure_text": "Build was cancelled by an unspecified external action.",
+      "expected_category": "unknown",
+      "relevant_incident_ids": [],
+      "relevance_note": "Cancellation cause is not represented historically.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-unk-04",
+      "failure_text": "The pipeline stopped after an unclassified warning.",
+      "expected_category": "unknown",
+      "relevant_incident_ids": [],
+      "relevance_note": "Warning does not support an incident label.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-unk-05",
+      "failure_text": "Intermittent failure observed; retry later.",
+      "expected_category": "unknown",
+      "relevant_incident_ids": [],
+      "relevance_note": "Ambiguous intermittent report.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-unk-06",
+      "failure_text": "A test stage emitted no logs before failing.",
+      "expected_category": "unknown",
+      "relevant_incident_ids": [],
+      "relevance_note": "No useful retrieval evidence.",
+      "synthetic": true
+    },
+    {
+      "id": "eval-unk-07",
+      "failure_text": "System reported an unspecified internal error.",
+      "expected_category": "unknown",
+      "relevant_incident_ids": [],
+      "relevance_note": "Unsupported by the local incident data.",
+      "synthetic": true
+    }
   ]
 }

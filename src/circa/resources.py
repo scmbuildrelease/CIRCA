@@ -10,4 +10,4 @@ def data_path(filename: str) -> Path:
     resource = files("circa").joinpath("data", filename)
     if not resource.is_file():
         raise FileNotFoundError(f"CIRCA packaged data file is missing: {filename}")
-    return Path(resource)
+    return Path(str(resource))

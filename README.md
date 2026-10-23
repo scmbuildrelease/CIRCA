@@ -22,15 +22,68 @@ Requires Python 3.12+.
 python -m pip install -e ".[dev]"
 python -m ruff check .
 python -m pytest
-python -m pip wheel --no-deps --wheel-dir dist .
 ```
 
 ## CI quality gate
 
-GitHub Actions runs on pull requests and pushes to `main` with Python 3.12. It
-installs the declared development extras, then runs Ruff, the deterministic test
-suite, and a wheel build. The standard checks do not require Ollama, embedding
-models, external LLM APIs, credentials, or private infrastructure.
+`.github/workflows/ci.yml` runs on every branch push, on pull requests (opened,
+reopened, or synchronized), and on demand through `workflow_dispatch`. All checks
+run on GitHub; no local pre-commit hooks are required. CI only reports problems
+and never formats, fixes, or commits files. Ordinary checks do not need Ollama,
+embedding models, external LLM APIs, credentials, or private infrastructure.
+
+| Check name                             | What it enforces                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| `Format (Prettier)`                    | Markdown, YAML, and JSON formatting (Prettier 3.9.9, check only)                 |
+| `Lint (Ruff)`                          | `ruff check` and `ruff format --check` (Ruff 0.16.10, `pyproject.toml` settings) |
+| `Tests (Python 3.12)`                  | Full pytest suite with line and branch coverage; fails below 90%                 |
+| `Tests (Python 3.13)`                  | Same suite on the newest supported interpreter                                   |
+| `Type check (mypy)`                    | mypy 2.4.0 with the Pydantic plugin over `src/`                                  |
+| `Security (Bandit)`                    | Python security lint of `src/`                                                   |
+| `Security (pip-audit)`                 | Known vulnerabilities in the declared runtime dependencies                       |
+| `Security (Gitleaks)`                  | Secrets anywhere in git history; findings are redacted in logs                   |
+| `Workflows (actionlint + zizmor)`      | Workflow validity, shell scripts in `run:` steps, and Actions security issues    |
+| `Package (build + install smoke test)` | Builds sdist and wheel, installs the wheel in a clean venv, runs the CLI         |
+
+Third-party actions are pinned to full commit SHAs, downloaded binaries are
+checksum-verified, every job has only `contents: read`, and checkouts do not
+persist credentials. Pushes to a pull request's branch run both the `push` and
+`pull_request` events; this is intentional so that every branch is checked
+even without a pull request.
+
+### Reproducing CI checks locally
+
+After `python -m pip install -e ".[dev]"`:
+
+```bash
+npx --yes prettier@3.9.9 --check "**/*.{md,yml,yaml,json}"
+ruff check .
+ruff format --check .
+python -m pytest --cov --cov-report=term-missing
+mypy
+pipx run bandit==1.9.4 -c pyproject.toml -r src
+pipx run pip-audit==2.10.1 --strict .
+python -m pip install build==1.6.1 && python -m build
+```
+
+Workflow and secret checks need the standalone tools: `actionlint`,
+`pipx run zizmor==1.30.1 .github/workflows`, and `gitleaks git --redact .`.
+
+### Enforcing the gate before merge
+
+GitHub Actions reports status but does not block a merge by itself. To block
+merging into `main`, open **Settings → Rules → Rulesets → New branch ruleset**
+(or **Settings → Branches → Add branch protection rule**), target the default
+branch, and enable:
+
+- **Require a pull request before merging**.
+- **Require status checks to pass**, adding each check name in the table
+  above. Run the workflow once first so GitHub can suggest the names.
+- **Require branches to be up to date before merging** (recommended).
+- **Block force pushes** and restrict deletions.
+
+CI cannot stop a push from reaching GitHub; required checks stop a failing
+change from being merged.
 
 ## End-to-end demo
 

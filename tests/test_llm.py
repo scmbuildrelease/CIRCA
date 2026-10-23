@@ -28,7 +28,10 @@ def test_ollama_provider_returns_response() -> None:
     request = mocked_urlopen.call_args.args[0]
     assert request.full_url == "http://ollama.test/api/generate"
     assert json.loads(request.data) == {
-        "model": "test-model", "prompt": "prompt", "stream": False, "options": {"temperature": 0}
+        "model": "test-model",
+        "prompt": "prompt",
+        "stream": False,
+        "options": {"temperature": 0},
     }
 
 
@@ -135,3 +138,12 @@ def test_ollama_provider_ignores_non_object_responses(body) -> None:
     with patch("circa.llm.urlopen", return_value=response):
         assert OllamaProvider().explain("prompt") is None
         assert OllamaProvider().classify("prompt") is None
+
+
+def test_ollama_provider_never_opens_non_http_urls() -> None:
+    provider = OllamaProvider(url="file:///etc/passwd")
+    with patch("circa.llm.urlopen") as mocked_urlopen:
+        assert provider.explain("prompt") is None
+        assert provider.classify("prompt") is None
+
+    mocked_urlopen.assert_not_called()

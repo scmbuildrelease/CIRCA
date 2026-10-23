@@ -36,9 +36,7 @@ def test_incomplete_performance_evidence_reports_missing_details() -> None:
 
 def test_firmware_signal_is_a_drift_hypothesis_requiring_human_approval() -> None:
     assessment = analyze_performance_failure(
-        "PERFORMANCE THRESHOLD VIOLATION\n"
-        "latency_p99 actual=21 ms expected<=15 ms\n"
-        "firmware_version=2.0.1"
+        "PERFORMANCE THRESHOLD VIOLATION\nlatency_p99 actual=21 ms expected<=15 ms\nfirmware_version=2.0.1"
     )
 
     assert assessment is not None

@@ -140,7 +140,6 @@ def test_unavailable_semantic_retrieval_preserves_keyword_analysis() -> None:
     assert "Category: hardware" in result.output
 
 
-
 def test_unavailable_semantic_retrieval_is_null_in_json() -> None:
     example = Path(__file__).parents[1] / "examples" / "hardware_failure.json"
     with patch("circa.cli.SemanticIncidentRetriever.retrieve", return_value=None):
@@ -149,17 +148,25 @@ def test_unavailable_semantic_retrieval_is_null_in_json() -> None:
     assert result.exit_code == 0
     assert json.loads(result.stdout)["semantic_matches"] is None
 
+
 def test_benchmark_prints_retrieval_metrics_with_semantic_availability() -> None:
     with patch("circa.cli.run_retrieval_benchmark") as run:
         from circa.benchmark import BenchmarkMethodResult, BenchmarkReport, RetrievalMetrics
 
         metrics = RetrievalMetrics(
-            evaluated_cases=1, skipped_cases=0, relevant_cases=1, no_known_relevance_cases=0,
-            top_1_accuracy=1.0, recall_at_k=1.0, mean_reciprocal_rank=1.0,
-            no_result_rate=0.0, evaluation_coverage=1.0,
+            evaluated_cases=1,
+            skipped_cases=0,
+            relevant_cases=1,
+            no_known_relevance_cases=0,
+            top_1_accuracy=1.0,
+            recall_at_k=1.0,
+            mean_reciprocal_rank=1.0,
+            no_result_rate=0.0,
+            evaluation_coverage=1.0,
         )
         run.return_value = BenchmarkReport(
-            dataset_size=1, top_k=3,
+            dataset_size=1,
+            top_k=3,
             methods=[
                 BenchmarkMethodResult(name="keyword", status="available", metrics=metrics),
                 BenchmarkMethodResult(name="semantic", status="unavailable", metrics=metrics),

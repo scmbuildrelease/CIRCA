@@ -5,7 +5,7 @@
     "category": "hardware",
     "summary": "Build failed because the worker disk had no space left for compiler output.",
     "keywords": ["disk", "full", "no space", "worker", "compiler"],
-    "environment": {"os": "linux", "runner": "bare-metal"},
+    "environment": { "os": "linux", "runner": "bare-metal" },
     "recommendation": "Free disk space and investigate the worker's cleanup policy.",
     "synthetic": true
   },
@@ -15,7 +15,7 @@
     "category": "hardware",
     "summary": "A test worker was terminated after exhausting available memory.",
     "keywords": ["out of memory", "oom", "worker", "terminated"],
-    "environment": {"os": "linux"},
+    "environment": { "os": "linux" },
     "recommendation": "Inspect memory use and increase or rebalance worker capacity.",
     "synthetic": true
   },
@@ -25,7 +25,7 @@
     "category": "software",
     "summary": "A unit test failed with an assertion after a behavior regression.",
     "keywords": ["assertion", "unit test", "expected", "actual", "regression"],
-    "environment": {"language": "python"},
+    "environment": { "language": "python" },
     "recommendation": "Review the changed behavior and update code or the intended assertion.",
     "synthetic": true
   },
@@ -35,7 +35,7 @@
     "category": "software",
     "summary": "The test process failed with ModuleNotFoundError for a required package.",
     "keywords": ["modulenotfounderror", "import", "dependency", "package"],
-    "environment": {"language": "python"},
+    "environment": { "language": "python" },
     "recommendation": "Declare and install the missing dependency in the test environment.",
     "synthetic": true
   },
@@ -45,7 +45,7 @@
     "category": "network",
     "summary": "Dependency installation timed out while contacting the package registry.",
     "keywords": ["timeout", "registry", "dependency", "connection", "package"],
-    "environment": {"network": "external"},
+    "environment": { "network": "external" },
     "recommendation": "Retry after checking registry reachability and network latency.",
     "synthetic": true
   },
@@ -55,7 +55,7 @@
     "category": "network",
     "summary": "The worker could not resolve the hostname required by an integration test.",
     "keywords": ["dns", "resolve", "hostname", "name resolution"],
-    "environment": {"network": "internal"},
+    "environment": { "network": "internal" },
     "recommendation": "Check DNS availability and the worker resolver configuration.",
     "synthetic": true
   },
@@ -65,7 +65,7 @@
     "category": "infrastructure",
     "summary": "The build could not start because its requested runner image was unavailable.",
     "keywords": ["runner", "image", "unavailable", "provisioning"],
-    "environment": {"runner": "container"},
+    "environment": { "runner": "container" },
     "recommendation": "Restore the runner image or select an available image version.",
     "synthetic": true
   },
@@ -75,7 +75,7 @@
     "category": "infrastructure",
     "summary": "Artifact upload failed because the internal artifact service returned 503.",
     "keywords": ["artifact", "upload", "service", "503", "unavailable"],
-    "environment": {"service": "artifact-store"},
+    "environment": { "service": "artifact-store" },
     "recommendation": "Check artifact service health and retry after the outage is resolved.",
     "synthetic": true
   }

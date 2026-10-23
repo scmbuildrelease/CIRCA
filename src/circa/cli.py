@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -115,7 +115,9 @@ def _print_benchmark_method(method: BenchmarkMethodResult, top_k: int) -> None:
     metrics = method.metrics
     typer.echo(f"{method.name.title()} retrieval ({method.status})")
     typer.echo(f"  evaluated: {metrics.evaluated_cases}; skipped: {metrics.skipped_cases}")
-    typer.echo(f"  relevant-label cases: {metrics.relevant_cases}; no-known-relevance: {metrics.no_known_relevance_cases}")
+    typer.echo(
+        f"  relevant-label cases: {metrics.relevant_cases}; no-known-relevance: {metrics.no_known_relevance_cases}"
+    )
     typer.echo(f"  Top-1 accuracy (relevant-label cases): {_format_metric(metrics.top_1_accuracy)}")
     typer.echo(f"  Recall@{top_k} (relevant-label cases): {_format_metric(metrics.recall_at_k)}")
     typer.echo(f"  MRR (relevant-label cases): {_format_metric(metrics.mean_reciprocal_rank)}")
@@ -153,7 +155,7 @@ def analyze(
         typer.echo("Warning: semantic retrieval unavailable.", err=True)
     if json_output:
         if llm_classify:
-            payload = {
+            payload: dict[str, Any] = {
                 "deterministic_analysis": deterministic_result.model_dump(exclude=_HYBRID_FIELDS),
                 "llm_classification": classification.model_dump() if classification else None,
                 "final_hybrid_analysis": {
@@ -166,11 +168,9 @@ def analyze(
                 payload["semantic_matches"] = (
                     [match.model_dump() for match in semantic_matches] if semantic_matches is not None else None
                 )
-            typer.echo(
-                json.dumps(payload, indent=2)
-            )
+            typer.echo(json.dumps(payload, indent=2))
         else:
-            payload = result.model_dump(exclude=_HYBRID_FIELDS)
+            payload = dict(result.model_dump(exclude=_HYBRID_FIELDS))
             if semantic_retrieve:
                 payload["semantic_matches"] = (
                     [match.model_dump() for match in semantic_matches] if semantic_matches is not None else None

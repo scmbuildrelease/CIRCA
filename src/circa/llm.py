@@ -7,6 +7,7 @@ import os
 from http.client import HTTPException
 from typing import Protocol
 from urllib.error import URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from pydantic import ValidationError
@@ -27,11 +28,17 @@ class OllamaProvider:
 
     def __init__(self, model: str | None = None, url: str | None = None, timeout: float = 5.0) -> None:
         self.model = model or os.getenv("CIRCA_LLM_MODEL", "llama3.2")
-        self.url = (url or os.getenv("CIRCA_OLLAMA_URL", "http://localhost:11434")).rstrip("/")
+        self.url = (url or os.getenv("CIRCA_OLLAMA_URL") or "http://localhost:11434").rstrip("/")
+        # Only HTTP(S) URLs are requested, so a misconfigured file:// or custom
+        # scheme is treated as an unavailable backend rather than opened.
+        self.available = urlsplit(self.url).scheme in {"http", "https"}
         self.timeout = timeout
 
     def explain(self, prompt: str) -> str | None:
         """Return Ollama's concise response, gracefully handling local failures."""
+
+        if not self.available:
+            return None
 
         payload = json.dumps(
             {"model": self.model, "prompt": prompt, "stream": False, "options": {"temperature": 0}}
@@ -43,7 +50,8 @@ class OllamaProvider:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            # Bandit B310: __init__ restricts self.url to http(s).
+            with urlopen(request, timeout=self.timeout) as response:  # nosec B310
                 body = json.loads(response.read().decode("utf-8"))
         except (OSError, HTTPException, URLError, ValueError):
             return None
@@ -53,6 +61,9 @@ class OllamaProvider:
 
     def classify(self, prompt: str) -> LLMClassification | None:
         """Return a validated structured local classification, when available."""
+
+        if not self.available:
+            return None
 
         payload = json.dumps(
             {
@@ -70,7 +81,8 @@ class OllamaProvider:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            # Bandit B310: __init__ restricts self.url to http(s).
+            with urlopen(request, timeout=self.timeout) as response:  # nosec B310
                 body = json.loads(response.read().decode("utf-8"))
             response_text = body.get("response") if isinstance(body, dict) else None
             if not isinstance(response_text, str):

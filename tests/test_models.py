@@ -2,9 +2,7 @@ from circa.models import AnalysisResult, CIFailure, HistoricalIncident
 
 
 def test_models_parse_valid_data() -> None:
-    failure = CIFailure.model_validate(
-        {"failure_text": "AssertionError: expected 2", "environment": {"os": "Linux"}}
-    )
+    failure = CIFailure.model_validate({"failure_text": "AssertionError: expected 2", "environment": {"os": "Linux"}})
     incident = HistoricalIncident.model_validate(
         {
             "id": "synthetic-test-001",

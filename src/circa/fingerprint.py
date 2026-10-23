@@ -25,12 +25,7 @@ def normalize_failure_text(text: str) -> str:
 def normalize_environment(environment: Mapping[str, str]) -> tuple[tuple[str, str], ...]:
     """Return environment data in a stable, case-insensitive form."""
 
-    return tuple(
-        sorted(
-            (str(key).strip().lower(), str(value).strip().lower())
-            for key, value in environment.items()
-        )
-    )
+    return tuple(sorted((str(key).strip().lower(), str(value).strip().lower()) for key, value in environment.items()))
 
 
 def failure_fingerprint(failure: CIFailure) -> str:

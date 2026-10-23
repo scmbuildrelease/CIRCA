@@ -115,7 +115,10 @@ def calculate_retrieval_metrics(
     top_1_hits = sum(bool(ids) and ids[0] in case.relevant_incident_ids for case, ids in eligible)
     recall_hits = sum(bool(set(ids) & set(case.relevant_incident_ids)) for case, ids in eligible)
     reciprocal_ranks = [
-        next((1 / rank for rank, incident_id in enumerate(ids, start=1) if incident_id in case.relevant_incident_ids), 0.0)
+        next(
+            (1 / rank for rank, incident_id in enumerate(ids, start=1) if incident_id in case.relevant_incident_ids),
+            0.0,
+        )
         for case, ids in eligible
     ]
     eligible_count = len(eligible)
@@ -144,7 +147,9 @@ class _PrecomputedSemanticRetriever:
     def __init__(self, matches: list[SemanticIncidentMatch]) -> None:
         self.matches = matches
 
-    def retrieve(self, *_args: object, **_kwargs: object) -> list[SemanticIncidentMatch]:
+    def retrieve(
+        self, failure: CIFailure, incidents: Iterable[HistoricalIncident], limit: int = 3
+    ) -> list[SemanticIncidentMatch]:
         return self.matches
 
 
@@ -189,15 +194,21 @@ def run_retrieval_benchmark(
         combined = retrieve_historical_candidates(
             failure,
             available_incidents,
-            semantic_retriever=_PrecomputedSemanticRetriever(semantic_matches) if semantic_matches is not None else None,
+            semantic_retriever=_PrecomputedSemanticRetriever(semantic_matches)
+            if semantic_matches is not None
+            else None,
             keyword_limit=top_k,
             semantic_limit=top_k,
             limit=top_k,
         )
         combined_ids.append([candidate.incident.id for candidate in combined])
 
-    semantic_status = "available" if semantic_unavailable == 0 else "unavailable" if semantic_unavailable == len(cases) else "partial"
-    combined_status = "combined" if semantic_unavailable == 0 else f"keyword fallback for {semantic_unavailable} case(s)"
+    semantic_status = (
+        "available" if semantic_unavailable == 0 else "unavailable" if semantic_unavailable == len(cases) else "partial"
+    )
+    combined_status = (
+        "combined" if semantic_unavailable == 0 else f"keyword fallback for {semantic_unavailable} case(s)"
+    )
     return BenchmarkReport(
         dataset_size=len(cases),
         top_k=top_k,
