@@ -1,25 +1,231 @@
+# Server-side quality gate. Job names are stable so they can be required by
+# branch protection or a repository ruleset; see "Continuous integration" in
+# README.md. CI only checks: it never formats, fixes, or commits files.
 name: CI
 
 on:
-  pull_request:
-    branches: [main]
   push:
-    branches: [main]
+    branches: ["**"]
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  # Superseded branch and PR runs are cancelled; default-branch runs always finish.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHON_VERSION: "3.12"
 
 jobs:
-  quality:
+  format:
+    name: Format (Prettier)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.12"
-          cache: pip
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      # Prettier also honors .gitignore, so virtual environments, caches, and
+      # build output are never checked.
+      - name: Check Markdown, YAML, and JSON formatting
+        run: npx --yes prettier@3.9.9 --check "**/*.{md,yml,yaml,json}"
+
+  lint:
+    name: Lint (Ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install Ruff
+        run: python -m pip install "ruff==0.16.10"
+      - name: Ruff lint
+        run: ruff check --output-format=github .
+      - name: Ruff format check
+        run: ruff format --check --diff .
+
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Install project and development dependencies
         run: python -m pip install -e ".[dev]"
-      - name: Lint
-        run: python -m ruff check .
-      - name: Test
-        run: python -m pytest
-      - name: Build wheel
-        run: python -m pip wheel --no-deps --wheel-dir dist .
+      # The suite mocks Ollama and embeddings; no LLM service is needed. The
+      # coverage threshold is configured in pyproject.toml.
+      - name: Run pytest with coverage
+        run: python -m pytest --cov --cov-report=term-missing
+
+  typecheck:
+    name: Type check (mypy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install project and mypy
+        run: python -m pip install -e ".[dev]"
+      - name: Run mypy
+        run: mypy
+
+  bandit:
+    name: Security (Bandit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install Bandit
+        run: python -m pip install "bandit==1.9.4"
+      - name: Run Bandit
+        run: bandit -c pyproject.toml -r src
+
+  dependency-audit:
+    name: Security (pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install pip-audit
+        run: python -m pip install "pip-audit==2.10.1"
+      # Resolves and audits the project's declared runtime dependencies.
+      - name: Audit runtime dependencies
+        run: pip-audit --strict --progress-spinner off .
+
+  secrets:
+    name: Security (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Gitleaks (checksum verified)
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" gitleaks
+      # Scans the full git history. --redact keeps any detected secret value
+      # out of the job log.
+      - name: Scan git history for secrets
+        run: ./gitleaks git --redact --no-banner --verbose .
+
+  workflows:
+    name: Workflows (actionlint + zizmor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      ACTIONLINT_VERSION: "1.7.12"
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install actionlint (checksum verified)
+        run: |
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "$archive" "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}"
+          echo "${ACTIONLINT_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" actionlint
+      # Uses the runner's preinstalled shellcheck to lint run: scripts.
+      - name: Run actionlint
+        run: ./actionlint -color
+      - name: Install zizmor
+        run: python -m pip install "zizmor==1.30.1"
+      # The read-only job token enables zizmor's online audits (known-vulnerable
+      # and impostor action references).
+      - name: Run zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor --format=github .github/workflows
+
+  package:
+    name: Package (build + install smoke test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install "build==1.6.1"
+          python -m build --outdir dist .
+      - name: Install wheel into a clean virtual environment
+        run: |
+          python -m venv "$RUNNER_TEMP/wheel-venv"
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install dist/*.whl
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip check
+      # Runs outside the checkout so packaged data, not repository files, is used.
+      - name: Smoke-test the installed CLI
+        working-directory: ${{ runner.temp }}
+        run: |
+          circa="$RUNNER_TEMP/wheel-venv/bin/circa"
+          "$circa" --help
+          "$circa" analyze "$GITHUB_WORKSPACE/examples/hardware_failure.json"
+          "$circa" analyze-log "$GITHUB_WORKSPACE/examples/demo_disk_full.log"
+          "$circa" benchmark --top-k 3

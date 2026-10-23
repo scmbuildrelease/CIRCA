@@ -15,9 +15,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Linter, formatter, and type-checker versions are pinned so local runs match CI.
 dev = [
+    "mypy==2.4.0",
     "pytest>=8.0",
-    "ruff>=0.6",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.10",
 ]
 
 [project.scripts]
@@ -29,6 +32,25 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py312"
 line-length = 120
+
+[tool.coverage.run]
+source = ["circa"]
+branch = true
+
+[tool.coverage.report]
+# Baseline is 92% line+branch coverage; the floor catches meaningful drops.
+fail_under = 90
+show_missing = true
+
+[tool.mypy]
+files = ["src"]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.bandit]
+exclude_dirs = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/circa"]
