@@ -125,3 +125,13 @@ def test_classify_failure_returns_provider_classification() -> None:
 
     assert classification is not None
     assert classification.root_cause == "Disk full"
+
+
+@pytest.mark.parametrize("body", [[], "text", 3])
+def test_ollama_provider_ignores_non_object_responses(body) -> None:
+    response = MagicMock()
+    response.read.return_value = json.dumps(body).encode()
+    response.__enter__.return_value = response
+    with patch("circa.llm.urlopen", return_value=response):
+        assert OllamaProvider().explain("prompt") is None
+        assert OllamaProvider().classify("prompt") is None

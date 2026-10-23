@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 _FAILURE_SIGNAL = re.compile(
-    r"\b(?:error|failed|failure|exception|traceback|assertionerror|timeout|"
+    r"\b(?:\w*error|failed|failure|\w*exception|traceback|timeout|threshold violation|"
     r"connection refused|no space left|out of memory|oom|segmentation fault)\b",
     re.IGNORECASE,
 )

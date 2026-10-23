@@ -34,3 +34,14 @@ def test_extracts_multiple_distinct_errors() -> None:
 
     assert "connection refused by registry" in extracted
     assert "ERROR: package download FAILED" in extracted
+
+
+def test_extracts_named_exception_lines() -> None:
+    log = "Traceback (most recent call last):\n  File a.py\n  File b.py\n  File c.py\nKeyError: 'build_id'"
+
+    assert "KeyError: 'build_id'" in extract_failure_text(log)
+    assert "java.lang.NullPointerException" in extract_failure_text("java.lang.NullPointerException at Foo")
+
+
+def test_extracts_explicit_performance_threshold_violation() -> None:
+    assert "PERFORMANCE THRESHOLD VIOLATION" in extract_failure_text("PERFORMANCE THRESHOLD VIOLATION\nlatency high")

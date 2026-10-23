@@ -144,3 +144,22 @@ def test_dataset_validation_accepts_empty_relevance_and_reports_malformed_record
     invalid_json.write_text("{")
     with pytest.raises(ValueError, match="Invalid evaluation dataset JSON"):
         load_evaluation_cases(invalid_json, [])
+
+
+def test_benchmark_queries_semantic_backend_once_per_case() -> None:
+    class CountingProvider(StaticEmbeddingProvider):
+        calls = 0
+
+        def embed(self, texts: list[str]) -> list[list[float]] | None:
+            CountingProvider.calls += 1
+            return [[1.0, 0.0] for _ in texts]
+
+    incidents = [_incident("a", ["disk"])]
+    report = run_retrieval_benchmark(
+        [_case("one", ["a"]), _case("two", ["a"])],
+        incidents,
+        semantic_retriever=SemanticIncidentRetriever(CountingProvider(None)),
+    )
+
+    assert CountingProvider.calls == 2
+    assert report.methods[2].status == "combined"

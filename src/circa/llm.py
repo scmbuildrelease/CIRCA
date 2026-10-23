@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from http.client import HTTPException
 from typing import Protocol
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -44,10 +45,10 @@ class OllamaProvider:
         try:
             with urlopen(request, timeout=self.timeout) as response:
                 body = json.loads(response.read().decode("utf-8"))
-        except (OSError, URLError, ValueError, json.JSONDecodeError):
+        except (OSError, HTTPException, URLError, ValueError):
             return None
 
-        explanation = body.get("response")
+        explanation = body.get("response") if isinstance(body, dict) else None
         return explanation.strip() if isinstance(explanation, str) and explanation.strip() else None
 
     def classify(self, prompt: str) -> LLMClassification | None:
@@ -71,11 +72,11 @@ class OllamaProvider:
         try:
             with urlopen(request, timeout=self.timeout) as response:
                 body = json.loads(response.read().decode("utf-8"))
-            response_text = body.get("response")
+            response_text = body.get("response") if isinstance(body, dict) else None
             if not isinstance(response_text, str):
                 return None
             return LLMClassification.model_validate_json(response_text)
-        except (OSError, URLError, ValueError, json.JSONDecodeError, ValidationError):
+        except (OSError, HTTPException, URLError, ValueError, ValidationError):
             return None
 
 

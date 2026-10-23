@@ -6,6 +6,7 @@ import json
 import math
 import os
 from collections.abc import Iterable, Sequence
+from http.client import HTTPException
 from typing import Protocol
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -43,10 +44,10 @@ class OllamaEmbeddingProvider:
         try:
             with urlopen(request, timeout=self.timeout) as response:
                 body = json.loads(response.read().decode("utf-8"))
-        except (OSError, URLError, ValueError, json.JSONDecodeError):
+        except (OSError, HTTPException, URLError, ValueError):
             return None
 
-        embeddings = body.get("embeddings")
+        embeddings = body.get("embeddings") if isinstance(body, dict) else None
         if not isinstance(embeddings, list) or len(embeddings) != len(texts):
             return None
         try:

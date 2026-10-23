@@ -7,10 +7,19 @@ import re
 from collections.abc import Iterable
 from pathlib import Path
 
-from .fingerprint import normalize_environment, normalize_failure_text
+from .fingerprint import normalize_environment
 from .models import CIFailure, HistoricalIncident, KeywordIncidentMatch
 
 _TOKEN = re.compile(r"[a-z0-9_./-]+")
+# Function words and generic failure verbs carry no cause information but appear
+# in most failures and incident summaries, so they must not count as overlap.
+_STOPWORDS = frozenset(
+    {
+        "a", "after", "an", "and", "are", "as", "at", "be", "because", "been", "by", "could", "error",
+        "failed", "failure", "for", "from", "has", "in", "is", "it", "its", "of", "on", "or", "the",
+        "this", "to", "was", "were", "when", "while", "with",
+    }
+)
 
 
 def load_incidents(path: str | Path) -> list[HistoricalIncident]:
@@ -20,16 +29,18 @@ def load_incidents(path: str | Path) -> list[HistoricalIncident]:
     return [HistoricalIncident.model_validate(record) for record in records]
 
 
-def _tokens(text: str) -> set[str]:
-    return set(_TOKEN.findall(normalize_failure_text(text)))
+def tokenize(text: str) -> set[str]:
+    """Return meaningful lowercase tokens, keeping literal codes such as ``503``."""
+
+    return set(_TOKEN.findall(text.lower())) - _STOPWORDS
 
 
-def _incident_tokens(incident: HistoricalIncident) -> set[str]:
-    return _tokens(" ".join([incident.title, incident.summary, *incident.keywords]))
+def incident_tokens(incident: HistoricalIncident) -> set[str]:
+    return tokenize(" ".join([incident.title, incident.summary, *incident.keywords]))
 
 
 def _score(failure: CIFailure, incident: HistoricalIncident) -> float:
-    overlap = _tokens(failure.failure_text) & _incident_tokens(incident)
+    overlap = tokenize(failure.failure_text) & incident_tokens(incident)
     if not overlap:
         return 0.0
 

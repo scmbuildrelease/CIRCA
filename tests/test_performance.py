@@ -1,8 +1,8 @@
-from circa.performance import analyze_performance_failure
-from circa.pipeline import analyze_log
 from circa.analyzer import analyze_failure
 from circa.log_parser import extract_failure_text
 from circa.models import CIFailure
+from circa.performance import analyze_performance_failure
+from circa.pipeline import analyze_log
 
 
 def test_explicit_performance_threshold_violation_extracts_supported_measurement() -> None:

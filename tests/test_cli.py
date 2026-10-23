@@ -140,6 +140,15 @@ def test_unavailable_semantic_retrieval_preserves_keyword_analysis() -> None:
     assert "Category: hardware" in result.output
 
 
+
+def test_unavailable_semantic_retrieval_is_null_in_json() -> None:
+    example = Path(__file__).parents[1] / "examples" / "hardware_failure.json"
+    with patch("circa.cli.SemanticIncidentRetriever.retrieve", return_value=None):
+        result = runner.invoke(app, ["analyze", str(example), "--semantic-retrieve", "--json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["semantic_matches"] is None
+
 def test_benchmark_prints_retrieval_metrics_with_semantic_availability() -> None:
     with patch("circa.cli.run_retrieval_benchmark") as run:
         from circa.benchmark import BenchmarkMethodResult, BenchmarkReport, RetrievalMetrics

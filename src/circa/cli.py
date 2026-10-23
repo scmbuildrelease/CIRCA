@@ -163,14 +163,18 @@ def analyze(
                 },
             }
             if semantic_retrieve:
-                payload["semantic_matches"] = [match.model_dump() for match in semantic_matches] if semantic_matches else []
+                payload["semantic_matches"] = (
+                    [match.model_dump() for match in semantic_matches] if semantic_matches is not None else None
+                )
             typer.echo(
                 json.dumps(payload, indent=2)
             )
         else:
             payload = result.model_dump(exclude=_HYBRID_FIELDS)
             if semantic_retrieve:
-                payload["semantic_matches"] = [match.model_dump() for match in semantic_matches] if semantic_matches else []
+                payload["semantic_matches"] = (
+                    [match.model_dump() for match in semantic_matches] if semantic_matches is not None else None
+                )
             typer.echo(json.dumps(payload, indent=2))
         return
     _print_report(result, "Deterministic Analysis" if llm_classify else "CIRCA Analysis Report")

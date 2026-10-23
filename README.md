@@ -57,10 +57,12 @@ Category: hardware
 Confidence: 0.95
 Root cause: Build failed because the worker disk had no space left for compiler output.
 Evidence:
-- Historical incident synthetic-hardware-disk-001 shares 8 keyword(s) and 0 environment value(s).
+- Historical incident synthetic-hardware-disk-001 shares 7 keyword(s) and 0 environment value(s).
+- Historical incident synthetic-hardware-memory-002 shares 2 keyword(s) and 0 environment value(s).
 - Failure text contains filesystem.
 Historical matches:
 - synthetic-hardware-disk-001
+- synthetic-hardware-memory-002
 Recommendation: Free disk space and investigate the worker's cleanup policy.
 Owner: hardware-ops
 Fingerprint: 8d765a3ffda765b075f77658080166de73d6c627774e276bf5d8ae38b6a0bacd
@@ -95,6 +97,29 @@ deterministic results are limited by the available log evidence and bundled
 incident data; they are not a claim of production incident-diagnosis accuracy.
 Optional local Ollama explanation, classification, and semantic retrieval are
 not used by this demo.
+
+## Performance-threshold failures
+
+`analyze-log` also attaches a separate, deterministic performance assessment
+when a log contains an explicit threshold violation (for example `PERFORMANCE
+THRESHOLD VIOLATION`, or a latency/throughput line that says it exceeds or
+violates a limit). A generic `AssertionError` is not treated as a performance
+failure.
+
+```bash
+circa analyze-log examples/demo_performance_threshold.log
+```
+
+The assessment keeps three concepts separate: the failure type
+(`performance_threshold_violation`), a candidate cause that is only a hypothesis
+(`hardware_firmware_performance_drift` when firmware, driver, BIOS, or hardware
+revision details appear; otherwise `possible_genuine_performance_regression` or
+`undetermined`), and a recommended action (`performance_threshold_recalibration`).
+Metric values, expected ranges, tolerances, units, and test names are reported
+only when the log states them; anything absent is listed as missing evidence.
+CIRCA never changes thresholds or baselines. Recalibration requires human
+validation and approval. The assessment does not change the deterministic
+category or confidence. The example log is synthetic.
 
 ## Retrieval benchmark
 

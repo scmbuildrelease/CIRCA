@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 
-from .fingerprint import failure_fingerprint, normalize_environment, normalize_failure_text
-from .knowledge import find_similar_incidents, load_incidents
+from .fingerprint import failure_fingerprint, normalize_environment
+from .knowledge import find_similar_incidents, incident_tokens, load_incidents, tokenize
 from .models import AnalysisResult, CauseCategory, CIFailure, HistoricalIncident
 from .resources import data_path
 
-_TOKEN = re.compile(r"[a-z0-9_./-]+")
 _OWNERS = {
     "hardware": "hardware-ops",
     "network": "network-ops",
@@ -27,14 +25,6 @@ _CATEGORY_KEYWORDS: dict[CauseCategory, set[str]] = {
     "infrastructure": {"runner", "image", "provisioning", "artifact", "503", "unavailable"},
     "unknown": set(),
 }
-
-
-def _tokens(text: str) -> set[str]:
-    return set(_TOKEN.findall(normalize_failure_text(text)))
-
-
-def _incident_tokens(incident: HistoricalIncident) -> set[str]:
-    return _tokens(" ".join([incident.title, incident.summary, *incident.keywords]))
 
 
 def _environment_matches(failure: CIFailure, incident: HistoricalIncident) -> int:
@@ -60,13 +50,13 @@ def analyze_failure(
 
     available_incidents = list(incidents) if incidents is not None else load_incidents(_data_path())
     matches = find_similar_incidents(failure, available_incidents)
-    failure_tokens = _tokens(failure.failure_text)
+    failure_tokens = tokenize(failure.failure_text)
 
     category_scores: dict[CauseCategory, float] = defaultdict(float)
     incident_overlap: dict[str, int] = {}
     environment_overlap: dict[str, int] = {}
     for incident in matches:
-        keyword_overlap = len(failure_tokens & _incident_tokens(incident))
+        keyword_overlap = len(failure_tokens & incident_tokens(incident))
         environment_matches = _environment_matches(failure, incident)
         incident_overlap[incident.id] = keyword_overlap
         environment_overlap[incident.id] = environment_matches

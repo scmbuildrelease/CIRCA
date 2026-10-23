@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationError
 
 from .knowledge import find_similar_incidents, load_incidents
-from .models import CauseCategory, CIFailure, HistoricalIncident
+from .models import CauseCategory, CIFailure, HistoricalIncident, SemanticIncidentMatch
 from .resources import data_path
 from .retrieval import retrieve_historical_candidates
 from .semantic import SemanticIncidentRetriever
@@ -138,6 +138,16 @@ def _failure(case: EvaluationCase) -> CIFailure:
     return CIFailure(failure_text=case.failure_text)
 
 
+class _PrecomputedSemanticRetriever:
+    """Replay one semantic result so combined retrieval cannot query the backend again."""
+
+    def __init__(self, matches: list[SemanticIncidentMatch]) -> None:
+        self.matches = matches
+
+    def retrieve(self, *_args: object, **_kwargs: object) -> list[SemanticIncidentMatch]:
+        return self.matches
+
+
 def run_retrieval_benchmark(
     cases: Sequence[EvaluationCase],
     incidents: Iterable[HistoricalIncident],
@@ -179,7 +189,7 @@ def run_retrieval_benchmark(
         combined = retrieve_historical_candidates(
             failure,
             available_incidents,
-            semantic_retriever=active_semantic_retriever,
+            semantic_retriever=_PrecomputedSemanticRetriever(semantic_matches) if semantic_matches is not None else None,
             keyword_limit=top_k,
             semantic_limit=top_k,
             limit=top_k,
