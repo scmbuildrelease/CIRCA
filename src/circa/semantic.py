@@ -111,7 +111,7 @@ class SemanticIncidentRetriever:
 
         if limit < 1:
             return []
-        available_incidents = list(incidents)
+        available_incidents = [incident for incident in incidents if incident.status == "verified"]
         if not available_incidents:
             return []
 

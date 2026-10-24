@@ -88,13 +88,20 @@ def find_similar_incident_matches(
     failure: CIFailure,
     incidents: Iterable[HistoricalIncident],
     limit: int = 3,
+    *,
+    include_unverified: bool = False,
 ) -> list[KeywordIncidentMatch]:
-    """Return scored local matches using keyword, category, and environment overlap."""
+    """Return scored local matches using keyword, category, and environment overlap.
+
+    Only ``verified`` incidents participate in analysis. ``include_unverified``
+    exists solely for knowledge-file duplicate detection.
+    """
 
     if limit < 1:
         return []
 
-    scored = ((incident, _score(failure, incident)) for incident in incidents)
+    eligible = (incident for incident in incidents if include_unverified or incident.status == "verified")
+    scored = ((incident, _score(failure, incident)) for incident in eligible)
     matches = [KeywordIncidentMatch(incident=incident, score=score) for incident, score in scored if score > 0]
     matches.sort(key=lambda match: (-match.score, match.incident.id))
     return matches[:limit]

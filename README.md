@@ -174,6 +174,90 @@ CIRCA never changes thresholds or baselines. Recalibration requires human
 validation and approval. The assessment does not change the deterministic
 category or confidence. The example log is synthetic.
 
+## Team incident knowledge
+
+The packaged incidents and the retrieval evaluation dataset are synthetic and
+read-only. A team records real, human-reviewed incidents in its own JSON file,
+for example kept in a repository so every change is reviewed in a pull request,
+and passes it explicitly:
+
+```bash
+circa analyze examples/hardware_failure.json --knowledge team/incidents.json
+circa analyze-log examples/demo_disk_full.log --knowledge team/incidents.json
+```
+
+Without `--knowledge`, analysis and retrieval are unchanged. With it, only
+`verified` incidents from the file are matched alongside the packaged ones, and
+a matched verified incident's validated `root_cause` is reported. Analysis never
+writes the file; `circa benchmark` never reads it.
+
+### Lifecycle
+
+```text
+pending_review ──(circa knowledge verify)──► verified ──(circa knowledge supersede)──► superseded
+```
+
+```bash
+circa knowledge add examples/incident_draft.json --knowledge team/incidents.json
+circa knowledge update revised_draft.json --knowledge team/incidents.json
+circa knowledge verify INCIDENT-ID --reviewer "Reviewer Name" --knowledge team/incidents.json
+circa knowledge supersede OLD-ID --by NEW-ID --knowledge team/incidents.json
+circa knowledge list --knowledge team/incidents.json
+circa knowledge validate team/incidents.json
+```
+
+- A draft is a human-written incident object; see the synthetic
+  `examples/incident_draft.json`. `add` always stores it as `pending_review`
+  and computes its deduplication fingerprint. Drafts may not set `status`,
+  `fingerprints`, `reviewed_by`, `superseded_by`, `created`, or `updated`.
+- Only `pending_review` incidents can be updated. A verified incident is
+  replaced by adding a new incident and superseding the old one.
+- Every write shows the record and asks for confirmation (or takes `--yes`),
+  then writes atomically. It refuses if the file changed since it was read.
+- Commands exit with status 1 on any validation error or declined write.
+
+### Schema rules
+
+- `synthetic` records provenance; `status` records the lifecycle. Team records
+  must state `status` explicitly.
+- A real incident can be `verified` only with a `root_cause`, a `reviewed_by`
+  reviewer, and a `fix` whose `validation_status` is `validated` with a
+  `validation_method` and `validation_evidence`. Allowed methods are
+  `reproduced_then_fixed`, `regression_test_added`, `repeated_runs_passed`
+  (the evidence must state at least 3 runs), and `manual_verification`. A
+  single successful retry is not a validation method.
+- LLM output never fills these fields: the commands read only human-written
+  drafts, and `--llm` results are never stored.
+- `evidence` holds at most 10 single-line excerpts of at most 300 characters,
+  never raw logs. Text matching obvious credential patterns (private-key
+  headers, AWS, GitHub, and Slack tokens, `password=`-style assignments) is
+  rejected. This is a safety net, not a substitute for review and Gitleaks.
+- `superseded_by` must be set exactly when `status` is `superseded` and must
+  name an incident in the same file. IDs may not repeat or collide with
+  packaged incident IDs.
+
+### Duplicate detection
+
+- **Exact duplicates** share a deduplication fingerprint and are rejected. The
+  fingerprint is a SHA-256 of the incident's `evidence` lines after lowercasing,
+  collapsing whitespace, sorting, and removing duplicates. It also replaces
+  timestamps and clock times, UUIDs, hex addresses and hashes of 7+
+  characters, temporary paths, durations, separator-delimited numeric suffixes
+  (`ci-linux-17`), and build, run, job, PID, or `#` numbers. Leading log-level
+  labels are dropped. Exit codes, HTTP status codes, ports, versions, and
+  module names are kept, so `exit code 1` and `exit code 137` stay distinct.
+- **Near duplicates** are found with the existing keyword scoring against every
+  incident in the team file, including pending and superseded ones. A score of
+  4 or more is reported, and the write requires `--allow-similar`.
+- The primary `fingerprint` in analysis output is unchanged.
+
+Limitations: the dedup fingerprint only matches evidence that normalizes to the
+same lines, so reworded evidence relies on the near-duplicate check. Near
+duplicates are not checked against packaged synthetic incidents. Files written
+by CIRCA are stable, sorted JSON but are not Prettier-formatted; run Prettier on
+the file, or exclude it, if the repository that stores it checks formatting.
+Lifecycle dates are recorded in UTC.
+
 ## Retrieval benchmark
 
 The version-controlled packaged `circa/data/retrieval_evaluation.json` dataset contains only

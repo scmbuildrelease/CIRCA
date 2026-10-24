@@ -1,0 +1,22 @@
+{
+  "id": "team-hardware-scratch-disk-001",
+  "title": "Synthetic example: scratch volume full on Linux build workers",
+  "category": "hardware",
+  "summary": "Linker could not write output because the worker scratch volume had no space left.",
+  "keywords": ["no space left", "scratch volume", "linker", "worker"],
+  "environment": { "os": "linux", "runner": "bare-metal" },
+  "recommendation": "Prune stale build directories on the worker and confirm the nightly cleanup job runs.",
+  "synthetic": true,
+  "evidence": [
+    "2026-10-22T10:14:16Z [ERROR] linker output could not be written: no space left on device",
+    "2026-10-22T10:14:16Z [ERROR] worker filesystem is full while creating compiler output"
+  ],
+  "root_cause": "The nightly scratch cleanup job was disabled, so stale build directories filled the volume.",
+  "fix": {
+    "description": "Re-enabled the nightly scratch cleanup job and added a disk-usage alert at 85%.",
+    "validation_status": "validated",
+    "validation_method": "repeated_runs_passed",
+    "validation_evidence": "Synthetic example: 5 consecutive nightly builds passed with scratch usage below 60%.",
+    "references": ["example-change-0001"]
+  }
+}

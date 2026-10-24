@@ -179,3 +179,119 @@ def test_benchmark_prints_retrieval_metrics_with_semantic_availability() -> None
     assert "CIRCA Retrieval Benchmark: 1 dataset cases; Top-K: 3" in result.output
     assert "Semantic retrieval (unavailable)" in result.output
     assert "Recall@3 (relevant-label cases): 1.000" in result.output
+
+
+DRAFT = Path(__file__).parents[1] / "examples" / "incident_draft.json"
+DISK_LOG = Path(__file__).parents[1] / "examples" / "demo_disk_full.log"
+EXAMPLE_ID = "team-hardware-scratch-disk-001"
+
+
+def _verified_knowledge(tmp_path: Path) -> Path:
+    path = tmp_path / "team.json"
+    assert runner.invoke(app, ["knowledge", "add", str(DRAFT), "--knowledge", str(path), "--yes"]).exit_code == 0
+    verify = ["knowledge", "verify", EXAMPLE_ID, "--knowledge", str(path), "--reviewer", "reviewer", "--yes"]
+    assert runner.invoke(app, verify).exit_code == 0
+    return path
+
+
+def test_knowledge_add_declined_confirmation_writes_nothing(tmp_path) -> None:
+    path = tmp_path / "team.json"
+
+    result = runner.invoke(app, ["knowledge", "add", str(DRAFT), "--knowledge", str(path)], input="n\n")
+
+    assert result.exit_code == 1
+    assert "Aborted; nothing was written." in result.output
+    assert not path.exists()
+
+
+def test_knowledge_add_accepted_confirmation_writes_pending_incident(tmp_path) -> None:
+    path = tmp_path / "team.json"
+
+    result = runner.invoke(app, ["knowledge", "add", str(DRAFT), "--knowledge", str(path)], input="y\n")
+
+    assert result.exit_code == 0
+    assert json.loads(path.read_text())[0]["status"] == "pending_review"
+
+
+def test_knowledge_commands_exit_nonzero_on_errors(tmp_path) -> None:
+    path = tmp_path / "team.json"
+    add = ["knowledge", "add", str(DRAFT), "--knowledge", str(path), "--yes"]
+    assert runner.invoke(app, add).exit_code == 0
+
+    duplicate = runner.invoke(app, add)
+    missing = runner.invoke(app, ["knowledge", "verify", "missing", "--knowledge", str(path), "--reviewer", "r"])
+    bad_draft = tmp_path / "bad.json"
+    bad_draft.write_text("[1, 2]")
+    malformed = runner.invoke(app, ["knowledge", "add", str(bad_draft), "--knowledge", str(path), "--yes"])
+
+    assert duplicate.exit_code == 1 and "already exists" in duplicate.output
+    assert missing.exit_code == 1 and "not found" in missing.output
+    assert malformed.exit_code == 1 and "one JSON incident object" in malformed.output
+
+
+def test_knowledge_validate_and_list_report_status(tmp_path) -> None:
+    path = _verified_knowledge(tmp_path)
+
+    validated = runner.invoke(app, ["knowledge", "validate", str(path)])
+    listed = runner.invoke(app, ["knowledge", "list", "--knowledge", str(path)])
+    path.write_text('[{"id": "x"}]')
+    invalid = runner.invoke(app, ["knowledge", "validate", str(path)])
+
+    assert validated.exit_code == 0 and "1 verified" in validated.output
+    assert f"{EXAMPLE_ID}\tverified\tsynthetic" in listed.output
+    assert invalid.exit_code == 1 and "explicit 'status'" in invalid.output
+
+
+def test_knowledge_supersede_command(tmp_path) -> None:
+    path = _verified_knowledge(tmp_path)
+    newer = json.loads(DRAFT.read_text()) | {"id": "team-newer-001", "evidence": ["cleanup daemon crashed"]}
+    newer_draft = tmp_path / "newer.json"
+    newer_draft.write_text(json.dumps(newer))
+    add = ["knowledge", "add", str(newer_draft), "--knowledge", str(path), "--yes", "--allow-similar"]
+    assert runner.invoke(app, add).exit_code == 0
+    verify = ["knowledge", "verify", "team-newer-001", "--knowledge", str(path), "--reviewer", "r", "--yes"]
+    assert runner.invoke(app, verify).exit_code == 0
+
+    result = runner.invoke(
+        app, ["knowledge", "supersede", EXAMPLE_ID, "--by", "team-newer-001", "--knowledge", str(path), "--yes"]
+    )
+
+    assert result.exit_code == 0
+    assert {record["id"]: record["status"] for record in json.loads(path.read_text())}[EXAMPLE_ID] == "superseded"
+
+
+def test_analysis_with_knowledge_matches_verified_incident_and_never_writes(tmp_path) -> None:
+    path = _verified_knowledge(tmp_path)
+    before = path.read_bytes()
+
+    log_result = runner.invoke(app, ["analyze-log", str(DISK_LOG), "--knowledge", str(path), "--json"])
+    json_result = runner.invoke(
+        app,
+        ["analyze", str(Path(__file__).parents[1] / "examples" / "hardware_failure.json"), "--knowledge", str(path)],
+    )
+
+    assert log_result.exit_code == 0 and json_result.exit_code == 0
+    assert json.loads(log_result.output)["matched_incident_ids"][0] == EXAMPLE_ID
+    assert path.read_bytes() == before
+    assert [item.name for item in tmp_path.iterdir()] == ["team.json"]
+
+
+def test_analysis_with_pending_knowledge_is_identical_to_without(tmp_path) -> None:
+    path = tmp_path / "team.json"
+    assert runner.invoke(app, ["knowledge", "add", str(DRAFT), "--knowledge", str(path), "--yes"]).exit_code == 0
+
+    without = runner.invoke(app, ["analyze-log", str(DISK_LOG), "--json"])
+    pending = runner.invoke(app, ["analyze-log", str(DISK_LOG), "--knowledge", str(path), "--json"])
+
+    assert without.exit_code == pending.exit_code == 0
+    assert without.output == pending.output
+
+
+def test_analysis_with_invalid_knowledge_file_exits_nonzero(tmp_path) -> None:
+    path = tmp_path / "team.json"
+    path.write_text('[{"id": "x"}]')
+
+    result = runner.invoke(app, ["analyze-log", str(DISK_LOG), "--knowledge", str(path)])
+
+    assert result.exit_code == 1
+    assert "explicit 'status'" in result.output

@@ -12,13 +12,27 @@ from .analyzer import analyze_failure
 from .benchmark import BenchmarkMethodResult, load_evaluation_cases, run_retrieval_benchmark
 from .hybrid import apply_hybrid_scoring
 from .knowledge import load_incidents
+from .knowledge_store import (
+    KnowledgeError,
+    KnowledgeFile,
+    add_incident,
+    load_analysis_incidents,
+    load_knowledge,
+    save_knowledge,
+    serialize_incidents,
+    supersede_incident,
+    update_incident,
+    verify_incident,
+)
 from .llm import classify_failure, explain_analysis
-from .models import AnalysisResult, CIFailure, LLMClassification, SemanticIncidentMatch
+from .models import AnalysisResult, CIFailure, HistoricalIncident, LLMClassification, SemanticIncidentMatch
 from .pipeline import analyze_log
 from .resources import data_path
 from .semantic import OllamaEmbeddingProvider, SemanticIncidentRetriever
 
 app = typer.Typer(help="Analyze CI failures using local deterministic evidence.")
+knowledge_app = typer.Typer(help="Manage a human-reviewed team incident knowledge file.")
+app.add_typer(knowledge_app, name="knowledge")
 
 _HYBRID_FIELDS = {"llm_classification", "final_category", "final_confidence", "final_root_cause"}
 
@@ -125,6 +139,30 @@ def _print_benchmark_method(method: BenchmarkMethodResult, top_k: int) -> None:
     typer.echo(f"  coverage (all dataset cases): {_format_metric(metrics.evaluation_coverage)}")
 
 
+KnowledgeOption = Annotated[
+    Path | None,
+    typer.Option(
+        "--knowledge",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+        help="Team knowledge file; its verified incidents are matched alongside the packaged ones. Never written.",
+    ),
+]
+
+
+def _analysis_incidents(knowledge: Path | None) -> list[HistoricalIncident] | None:
+    """Return ``None`` (packaged defaults) without --knowledge, keeping behavior unchanged."""
+
+    if knowledge is None:
+        return None
+    try:
+        return load_analysis_incidents(knowledge)
+    except KnowledgeError as error:
+        typer.echo(f"Error: {error}", err=True)
+        raise typer.Exit(1) from error
+
+
 @app.command()
 def analyze(
     failure_json: Annotated[Path, typer.Argument(exists=True, readable=True, help="Path to a CIFailure JSON file.")],
@@ -136,18 +174,20 @@ def analyze(
     semantic_retrieve: Annotated[
         bool, typer.Option("--semantic-retrieve", help="Retrieve similar incidents with optional local embeddings.")
     ] = False,
+    knowledge: KnowledgeOption = None,
 ) -> None:
     """Analyze a local CIFailure JSON file."""
 
     failure = CIFailure.model_validate_json(failure_json.read_text(encoding="utf-8"))
-    deterministic_result = analyze_failure(failure)
+    analysis_incidents = _analysis_incidents(knowledge)
+    deterministic_result = analyze_failure(failure, analysis_incidents)
     if llm:
         deterministic_result = explain_analysis(failure.failure_text, deterministic_result)
     classification = classify_failure(failure, deterministic_result) if llm_classify else None
     result = apply_hybrid_scoring(deterministic_result, classification) if llm_classify else deterministic_result
     semantic_matches = None
     if semantic_retrieve:
-        incidents = load_incidents(data_path("incidents.json"))
+        incidents = analysis_incidents or load_incidents(data_path("incidents.json"))
         semantic_matches = SemanticIncidentRetriever(OllamaEmbeddingProvider()).retrieve(failure, incidents)
     if llm_classify and classification is None:
         typer.echo("Warning: LLM classification unavailable.", err=True)
@@ -192,10 +232,11 @@ def analyze(
 def analyze_log_file(
     raw_log_file: Annotated[Path, typer.Argument(exists=True, readable=True, help="Path to a raw CI log file.")],
     json_output: Annotated[bool, typer.Option("--json", help="Print the analysis result as JSON.")] = False,
+    knowledge: KnowledgeOption = None,
 ) -> None:
     """Extract failure evidence from and analyze a local raw CI log."""
 
-    result = analyze_log(raw_log_file.read_text(encoding="utf-8"))
+    result = analyze_log(raw_log_file.read_text(encoding="utf-8"), incidents=_analysis_incidents(knowledge))
     if json_output:
         typer.echo(result.model_dump_json(indent=2))
         return
@@ -220,3 +261,146 @@ def benchmark(
     for method in report.methods:
         typer.echo()
         _print_benchmark_method(method, report.top_k)
+
+
+KnowledgeFileOption = Annotated[
+    Path, typer.Option("--knowledge", dir_okay=False, help="Team knowledge JSON file to read and update.")
+]
+YesOption = Annotated[bool, typer.Option("--yes", help="Write without the interactive confirmation prompt.")]
+AllowSimilarOption = Annotated[
+    bool, typer.Option("--allow-similar", help="Proceed even when a near-duplicate incident is reported.")
+]
+
+
+def _fail(error: Exception) -> typer.Exit:
+    typer.echo(f"Error: {error}", err=True)
+    return typer.Exit(1)
+
+
+def _load_draft(draft_json: Path) -> dict[str, Any]:
+    try:
+        draft = json.loads(draft_json.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise _fail(KnowledgeError(f"{draft_json} is not valid JSON: {error}")) from error
+    if not isinstance(draft, dict):
+        raise _fail(KnowledgeError(f"{draft_json} must contain one JSON incident object"))
+    return draft
+
+
+def _confirm_and_save(
+    knowledge: KnowledgeFile, incidents: list[HistoricalIncident], incident: HistoricalIncident, action: str, yes: bool
+) -> None:
+    """Show the exact record, require confirmation, then write atomically."""
+
+    typer.echo(f"{action} incident '{incident.id}' ({incident.status}) in {knowledge.path}:")
+    typer.echo(serialize_incidents([incident]).strip())
+    if not yes and not typer.confirm("Write this change?", default=False):
+        typer.echo("Aborted; nothing was written.", err=True)
+        raise typer.Exit(1)
+    try:
+        save_knowledge(knowledge, incidents)
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    typer.echo(f"Wrote {knowledge.path}")
+
+
+@knowledge_app.command("add")
+def knowledge_add(
+    draft_json: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="Human-written incident draft.")],
+    knowledge: KnowledgeFileOption,
+    yes: YesOption = False,
+    allow_similar: AllowSimilarOption = False,
+) -> None:
+    """Add a new incident; it always starts as pending_review. Creates the file if needed."""
+
+    try:
+        current = load_knowledge(knowledge, must_exist=False)
+        incidents, incident, warnings = add_incident(current, _load_draft(draft_json), allow_similar=allow_similar)
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    for warning in warnings:
+        typer.echo(f"Warning: {warning}", err=True)
+    _confirm_and_save(current, incidents, incident, "Add", yes)
+
+
+@knowledge_app.command("update")
+def knowledge_update(
+    draft_json: Annotated[Path, typer.Argument(exists=True, dir_okay=False, help="Revised incident draft.")],
+    knowledge: KnowledgeFileOption,
+    yes: YesOption = False,
+    allow_similar: AllowSimilarOption = False,
+) -> None:
+    """Replace a pending_review incident with a revised draft of the same ID."""
+
+    try:
+        current = load_knowledge(knowledge)
+        incidents, incident, warnings = update_incident(current, _load_draft(draft_json), allow_similar=allow_similar)
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    for warning in warnings:
+        typer.echo(f"Warning: {warning}", err=True)
+    _confirm_and_save(current, incidents, incident, "Update", yes)
+
+
+@knowledge_app.command("verify")
+def knowledge_verify(
+    incident_id: Annotated[str, typer.Argument(help="ID of a pending_review incident.")],
+    knowledge: KnowledgeFileOption,
+    reviewer: Annotated[str, typer.Option("--reviewer", help="Name of the human reviewer approving it.")],
+    yes: YesOption = False,
+) -> None:
+    """Mark a pending_review incident verified after human review."""
+
+    try:
+        current = load_knowledge(knowledge)
+        incidents, incident = verify_incident(current, incident_id, reviewer=reviewer)
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    _confirm_and_save(current, incidents, incident, "Verify", yes)
+
+
+@knowledge_app.command("supersede")
+def knowledge_supersede(
+    incident_id: Annotated[str, typer.Argument(help="ID of the verified incident being replaced.")],
+    by: Annotated[str, typer.Option("--by", help="ID of the verified incident that replaces it.")],
+    knowledge: KnowledgeFileOption,
+    yes: YesOption = False,
+) -> None:
+    """Retire a verified incident in favor of a newer verified one."""
+
+    try:
+        current = load_knowledge(knowledge)
+        incidents, incident = supersede_incident(current, incident_id, by=by)
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    _confirm_and_save(current, incidents, incident, "Supersede", yes)
+
+
+@knowledge_app.command("list")
+def knowledge_list(knowledge: KnowledgeFileOption) -> None:
+    """List team incidents with their status and provenance."""
+
+    try:
+        current = load_knowledge(knowledge)
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    for incident in sorted(current.incidents, key=lambda item: item.id):
+        provenance = "synthetic" if incident.synthetic else "real"
+        typer.echo(f"{incident.id}\t{incident.status}\t{provenance}\t{incident.title}")
+
+
+@knowledge_app.command("validate")
+def knowledge_validate(
+    knowledge_json: Annotated[Path, typer.Argument(dir_okay=False, help="Team knowledge JSON file to check.")],
+) -> None:
+    """Validate schema, lifecycle rules, IDs, and duplicate fingerprints; exit 1 on errors."""
+
+    try:
+        current = load_knowledge(knowledge_json)
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    counts = {
+        status: sum(item.status == status for item in current.incidents)
+        for status in ("pending_review", "verified", "superseded")
+    }
+    typer.echo(f"{knowledge_json}: valid; " + ", ".join(f"{count} {status}" for status, count in counts.items()))

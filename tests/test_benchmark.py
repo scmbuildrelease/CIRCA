@@ -168,3 +168,17 @@ def test_benchmark_queries_semantic_backend_once_per_case() -> None:
 
     assert CountingProvider.calls == 2
     assert report.methods[2].status == "combined"
+
+
+def test_packaged_keyword_benchmark_metrics_are_pinned() -> None:
+    incidents = load_incidents(data_path("incidents.json"))
+    cases = load_evaluation_cases(data_path("retrieval_evaluation.json"), incidents)
+
+    metrics = run_retrieval_benchmark(cases, incidents, top_k=3).methods[0].metrics
+
+    # Team knowledge files never enter the benchmark; these packaged-data values must not drift.
+    assert (metrics.evaluated_cases, metrics.relevant_cases, metrics.no_known_relevance_cases) == (35, 24, 11)
+    assert metrics.top_1_accuracy == pytest.approx(22 / 24)
+    assert metrics.recall_at_k == pytest.approx(23 / 24)
+    assert metrics.mean_reciprocal_rank == pytest.approx(0.9375)
+    assert metrics.no_result_rate == pytest.approx(4 / 35)

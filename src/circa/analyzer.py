@@ -103,7 +103,8 @@ def analyze_failure(
 
     confidence = min(0.95, 0.35 + (0.1 * category_scores[candidate]))
     if strongest_match is not None:
-        root_cause = strongest_match.summary
+        # Packaged incidents have no root_cause, so their summary remains the output.
+        root_cause = strongest_match.root_cause or strongest_match.summary
         recommendation = strongest_match.recommendation
     else:
         root_cause = f"Failure text indicates a likely {candidate} issue."
