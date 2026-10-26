@@ -7,7 +7,7 @@ from typing import Literal, Self
 from pydantic import BaseModel, Field, model_validator
 
 CauseCategory = Literal["hardware", "software", "network", "infrastructure", "unknown"]
-IncidentStatus = Literal["pending_review", "verified", "superseded"]
+IncidentStatus = Literal["pending_review", "verified", "superseded", "rejected"]
 
 MAX_EVIDENCE_LINES = 10
 MAX_EVIDENCE_CHARS = 300
@@ -29,7 +29,7 @@ _REPEATED_RUNS = re.compile(
 )
 
 
-def _contains_secret(text: str) -> bool:
+def contains_secret(text: str) -> bool:
     return any(pattern.search(text) for pattern in _SECRET_PATTERNS)
 
 
@@ -67,6 +67,19 @@ class IncidentFix(BaseModel):
         return self
 
 
+class DraftOrigin(BaseModel):
+    """Provenance of an automatically drafted incident; its diagnosis is a hypothesis until reviewed."""
+
+    generated_by: Literal["circa investigate-log"] = "circa investigate-log"
+    ai_generated: Literal[True] = True
+    llm_model: str | None = None
+    source_log: str = Field(min_length=1)
+    confidence: float = Field(ge=0.0, le=1.0)
+    validation_steps: list[str] = Field(default_factory=list)
+    missing_evidence: list[str] = Field(default_factory=list)
+    related_incident_ids: list[str] = Field(default_factory=list)
+
+
 class HistoricalIncident(BaseModel):
     """A known local incident used for deterministic comparison.
 
@@ -92,6 +105,7 @@ class HistoricalIncident(BaseModel):
     reviewed_by: str | None = None
     created: date | None = None
     updated: date | None = None
+    draft_origin: DraftOrigin | None = None
 
     @model_validator(mode="after")
     def _check_lifecycle(self) -> Self:
@@ -113,7 +127,7 @@ class HistoricalIncident(BaseModel):
                 raise ValueError("a verified real incident requires a fix with validation_status 'validated'")
             if not (self.reviewed_by or "").strip():
                 raise ValueError("a verified real incident requires reviewed_by")
-        if any(_contains_secret(text) for text in self._text_fields()):
+        if any(contains_secret(text) for text in self._text_fields()):
             raise ValueError("incident text matches a secret or credential pattern; redact it before storing")
         return self
 
@@ -124,6 +138,10 @@ class HistoricalIncident(BaseModel):
         if self.fix:
             texts += [self.fix.description, *self.fix.references]
             texts += [self.fix.validation_evidence] if self.fix.validation_evidence else []
+        if self.draft_origin:
+            origin = self.draft_origin
+            texts += [origin.source_log, *origin.validation_steps, *origin.missing_evidence]
+            texts += [*origin.related_incident_ids, *([origin.llm_model] if origin.llm_model else [])]
         return texts
 
 
@@ -160,6 +178,14 @@ class LLMClassification(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     root_cause: str = Field(min_length=1)
     evidence: list[str] = Field(default_factory=list)
+
+
+class LLMDiagnosis(LLMClassification):
+    """A structured local-LLM diagnosis hypothesis; it never verifies a fix."""
+
+    suggested_fix: str | None = None
+    validation_steps: list[str] = Field(default_factory=list)
+    missing_evidence: list[str] = Field(default_factory=list)
 
 
 class PerformanceMeasurement(BaseModel):

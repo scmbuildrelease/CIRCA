@@ -13,20 +13,23 @@ from .benchmark import BenchmarkMethodResult, load_evaluation_cases, run_retriev
 from .hybrid import apply_hybrid_scoring
 from .knowledge import load_incidents
 from .knowledge_store import (
+    MANAGED_FIELDS,
+    DuplicateIncidentError,
     KnowledgeError,
     KnowledgeFile,
     add_incident,
     load_analysis_incidents,
     load_knowledge,
+    reject_incident,
     save_knowledge,
     serialize_incidents,
     supersede_incident,
     update_incident,
     verify_incident,
 )
-from .llm import classify_failure, explain_analysis
+from .llm import OllamaProvider, classify_failure, explain_analysis
 from .models import AnalysisResult, CIFailure, HistoricalIncident, LLMClassification, SemanticIncidentMatch
-from .pipeline import analyze_log
+from .pipeline import Investigation, analyze_log, investigate_log
 from .resources import data_path
 from .semantic import OllamaEmbeddingProvider, SemanticIncidentRetriever
 
@@ -243,6 +246,131 @@ def analyze_log_file(
     _print_report(result)
 
 
+def _print_incident(incident: HistoricalIncident) -> None:
+    """Print a team incident's diagnosis, evidence, fix, and provenance for review."""
+
+    provenance = "synthetic" if incident.synthetic else "real"
+    typer.echo(f"Incident {incident.id} ({incident.status}, {provenance}, {incident.category})")
+    typer.echo(f"Title: {incident.title}")
+    typer.echo(f"Root cause: {incident.root_cause or incident.summary}")
+    typer.echo("Evidence:")
+    for line in incident.evidence or ["None recorded."]:
+        typer.echo(f"- {line}")
+    if incident.fix:
+        typer.echo(f"Fix: {incident.fix.description}")
+        typer.echo(f"Fix validation: {incident.fix.validation_status}")
+        if incident.fix.validation_method:
+            typer.echo(f"Validation evidence ({incident.fix.validation_method}): {incident.fix.validation_evidence}")
+    else:
+        typer.echo(f"Recommendation: {incident.recommendation}")
+    if incident.reviewed_by:
+        typer.echo(f"Reviewed by: {incident.reviewed_by}")
+    origin = incident.draft_origin
+    if origin:
+        model = origin.llm_model or "unknown model"
+        typer.echo(f"Origin: AI-generated hypothesis ({model}) from {origin.source_log}")
+        typer.echo(f"AI confidence: {origin.confidence:.2f}")
+        for step in origin.validation_steps:
+            typer.echo(f"Validation step: {step}")
+        for item in origin.missing_evidence:
+            typer.echo(f"Missing evidence: {item}")
+        typer.echo(f"Related incidents: {', '.join(origin.related_incident_ids) or 'none'}")
+
+
+def _save_draft(path: Path, draft: dict[str, Any]) -> None:
+    """Add an investigation draft as pending_review; duplicates are reported, not written."""
+
+    try:
+        current = load_knowledge(path, must_exist=False)
+        incidents, incident, _ = add_incident(current, draft)
+        save_knowledge(current, incidents)
+    except DuplicateIncidentError as error:
+        typer.echo(f"Draft not saved: {error}", err=True)
+        return
+    except (KnowledgeError, OSError) as error:
+        raise _fail(KnowledgeError(f"draft not saved: {error}")) from error
+    typer.echo(f"Draft saved: {incident.id} (pending_review) in {path}")
+    typer.echo(f"Review it: circa knowledge show {incident.id} --knowledge {path}")
+
+
+def _print_investigation(investigation: Investigation) -> None:
+    _print_report(investigation.analysis, "CIRCA Investigation")
+    typer.echo(f"Outcome: {investigation.outcome}")
+    typer.echo(f"LLM called: {'yes' if investigation.llm_called else 'no'}")
+    incident = investigation.matched_incident
+    if investigation.outcome == "known_solution" and incident is not None:
+        typer.echo()
+        typer.echo(f"Known verified solution (matched by {investigation.match_reason}):")
+        _print_incident(incident)
+        typer.echo("Note: the fix was validated for the recorded incident; confirm it applies to this environment.")
+    elif incident is not None:
+        typer.echo()
+        typer.echo(f"Existing team record (matched by {investigation.match_reason}):")
+        _print_incident(incident)
+    diagnosis = investigation.diagnosis
+    if diagnosis is not None:
+        typer.echo()
+        typer.echo("AI diagnosis (hypothesis from the local LLM; not verified)")
+        typer.echo(f"Category: {diagnosis.category}")
+        typer.echo(f"Confidence: {diagnosis.confidence:.2f}")
+        typer.echo(f"Candidate root cause: {diagnosis.root_cause}")
+        typer.echo(f"Suggested fix: {diagnosis.suggested_fix or 'none'}")
+        for step in diagnosis.validation_steps:
+            typer.echo(f"Validation step: {step}")
+        for item in diagnosis.missing_evidence:
+            typer.echo(f"Missing evidence: {item}")
+    if investigation.evidence:
+        typer.echo("Observed log evidence:")
+        for line in investigation.evidence:
+            typer.echo(f"- {line}")
+    for note in investigation.notes:
+        typer.echo(f"Note: {note}", err=True)
+
+
+@app.command("investigate-log")
+def investigate_log_file(
+    raw_log_file: Annotated[
+        Path, typer.Argument(exists=True, dir_okay=False, readable=True, help="Path to a raw CI log file.")
+    ],
+    knowledge: Annotated[
+        Path | None,
+        typer.Option(
+            "--knowledge",
+            dir_okay=False,
+            help="Team knowledge file: verified incidents are matched; new diagnoses are added as pending_review drafts.",
+        ),
+    ] = None,
+    synthetic: Annotated[
+        bool, typer.Option("--synthetic", help="Mark any new draft as synthetic (demo or test data).")
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the investigation as JSON.")] = False,
+) -> None:
+    """Investigate a raw CI log: verified history first, then the optional local LLM, then a draft."""
+
+    try:
+        team = load_knowledge(knowledge, must_exist=False).incidents if knowledge is not None else []
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    # Generating a diagnosis takes longer than an explanation; an absent server still fails fast.
+    investigation = investigate_log(
+        raw_log_file.read_text(encoding="utf-8"),
+        team,
+        OllamaProvider(timeout=60.0),
+        source_name=raw_log_file.name,
+        synthetic=synthetic,
+    )
+    if json_output:
+        typer.echo(investigation.model_dump_json(indent=2, exclude_none=True))
+    else:
+        _print_investigation(investigation)
+    if investigation.draft is None:
+        return
+    if knowledge is None:
+        typer.echo("Draft not saved: pass --knowledge PATH to keep new diagnoses for review.", err=True)
+        return
+    _save_draft(knowledge, investigation.draft)
+
+
 @app.command()
 def benchmark(
     top_k: Annotated[int, typer.Option("--top-k", min=1, help="Number of incidents to retrieve per case.")] = 3,
@@ -347,13 +475,27 @@ def knowledge_verify(
     incident_id: Annotated[str, typer.Argument(help="ID of a pending_review incident.")],
     knowledge: KnowledgeFileOption,
     reviewer: Annotated[str, typer.Option("--reviewer", help="Name of the human reviewer approving it.")],
+    validation_method: Annotated[
+        str | None,
+        typer.Option(
+            "--validation-method",
+            help="How you validated the fix: reproduced_then_fixed, regression_test_added, "
+            "repeated_runs_passed, or manual_verification.",
+        ),
+    ] = None,
+    validation_evidence: Annotated[
+        str | None, typer.Option("--validation-evidence", help="What actually showed the fix works.")
+    ] = None,
     yes: YesOption = False,
 ) -> None:
-    """Mark a pending_review incident verified after human review."""
+    """Approve a pending_review incident. Its fix is validated only with your own validation evidence."""
 
+    if (validation_method is None) != (validation_evidence is None):
+        raise _fail(KnowledgeError("--validation-method and --validation-evidence must be given together"))
+    validation = (validation_method, validation_evidence) if validation_method and validation_evidence else None
     try:
         current = load_knowledge(knowledge)
-        incidents, incident = verify_incident(current, incident_id, reviewer=reviewer)
+        incidents, incident = verify_incident(current, incident_id, reviewer=reviewer, validation=validation)
     except KnowledgeError as error:
         raise _fail(error) from error
     _confirm_and_save(current, incidents, incident, "Verify", yes)
@@ -376,8 +518,51 @@ def knowledge_supersede(
     _confirm_and_save(current, incidents, incident, "Supersede", yes)
 
 
+@knowledge_app.command("reject")
+def knowledge_reject(
+    incident_id: Annotated[str, typer.Argument(help="ID of a pending_review incident.")],
+    knowledge: KnowledgeFileOption,
+    reviewer: Annotated[str, typer.Option("--reviewer", help="Name of the human reviewer rejecting it.")],
+    yes: YesOption = False,
+) -> None:
+    """Archive a pending_review draft as rejected; it is kept but never matched."""
+
+    try:
+        current = load_knowledge(knowledge)
+        incidents, incident = reject_incident(current, incident_id, reviewer=reviewer)
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    _confirm_and_save(current, incidents, incident, "Reject", yes)
+
+
+@knowledge_app.command("show")
+def knowledge_show(
+    incident_id: Annotated[str, typer.Argument(help="ID of a team incident.")],
+    knowledge: KnowledgeFileOption,
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Print an editable draft for 'circa knowledge update'.")
+    ] = False,
+) -> None:
+    """Show one incident for review, or export it as an editable draft."""
+
+    try:
+        incident = next((item for item in load_knowledge(knowledge).incidents if item.id == incident_id), None)
+    except KnowledgeError as error:
+        raise _fail(error) from error
+    if incident is None:
+        raise _fail(KnowledgeError(f"incident '{incident_id}' not found in {knowledge}"))
+    if json_output:
+        record = incident.model_dump(mode="json", exclude_none=True, exclude=set(MANAGED_FIELDS))
+        typer.echo(json.dumps(record, indent=2, ensure_ascii=False))
+        return
+    _print_incident(incident)
+
+
 @knowledge_app.command("list")
-def knowledge_list(knowledge: KnowledgeFileOption) -> None:
+def knowledge_list(
+    knowledge: KnowledgeFileOption,
+    pending: Annotated[bool, typer.Option("--pending", help="Only list pending_review drafts.")] = False,
+) -> None:
     """List team incidents with their status and provenance."""
 
     try:
@@ -385,6 +570,8 @@ def knowledge_list(knowledge: KnowledgeFileOption) -> None:
     except KnowledgeError as error:
         raise _fail(error) from error
     for incident in sorted(current.incidents, key=lambda item: item.id):
+        if pending and incident.status != "pending_review":
+            continue
         provenance = "synthetic" if incident.synthetic else "real"
         typer.echo(f"{incident.id}\t{incident.status}\t{provenance}\t{incident.title}")
 
@@ -401,6 +588,6 @@ def knowledge_validate(
         raise _fail(error) from error
     counts = {
         status: sum(item.status == status for item in current.incidents)
-        for status in ("pending_review", "verified", "superseded")
+        for status in ("pending_review", "verified", "superseded", "rejected")
     }
     typer.echo(f"{knowledge_json}: valid; " + ", ".join(f"{count} {status}" for status, count in counts.items()))

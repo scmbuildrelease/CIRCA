@@ -21,18 +21,22 @@ from pydantic import ValidationError
 
 from .fingerprint import dedup_fingerprint
 from .knowledge import find_similar_incident_matches, load_incidents
-from .models import CIFailure, HistoricalIncident
+from .models import CIFailure, HistoricalIncident, IncidentFix, KeywordIncidentMatch
 from .resources import data_path
 
 # Keyword-overlap score (see knowledge._score) at or above which an incident is
 # reported as a near duplicate. Several shared distinctive terms are required.
 NEAR_DUPLICATE_MIN_SCORE = 4.0
 # Fields a draft may not set: they are computed or changed only by lifecycle commands.
-_MANAGED_FIELDS = frozenset({"status", "fingerprints", "superseded_by", "reviewed_by", "created", "updated"})
+MANAGED_FIELDS = frozenset({"status", "fingerprints", "superseded_by", "reviewed_by", "created", "updated"})
 
 
 class KnowledgeError(ValueError):
     """An invalid knowledge file, draft, or lifecycle transition."""
+
+
+class DuplicateIncidentError(KnowledgeError):
+    """A draft duplicates, or nearly duplicates, an existing team incident."""
 
 
 @dataclass(frozen=True)
@@ -115,14 +119,25 @@ def load_knowledge(path: str | Path, *, must_exist: bool = True) -> KnowledgeFil
 def load_analysis_incidents(knowledge_path: str | Path | None = None) -> list[HistoricalIncident]:
     """Return packaged incidents plus, if supplied, the team file's verified incidents."""
 
-    incidents = load_incidents(data_path("incidents.json"))
-    if knowledge_path is not None:
-        incidents += [item for item in load_knowledge(knowledge_path).incidents if item.status == "verified"]
-    return incidents
+    team = load_knowledge(knowledge_path).incidents if knowledge_path is not None else []
+    return analysis_incidents(team)
+
+
+def analysis_incidents(team_incidents: Iterable[HistoricalIncident]) -> list[HistoricalIncident]:
+    """Return packaged incidents plus the verified subset of already loaded team incidents."""
+
+    return load_incidents(data_path("incidents.json")) + [item for item in team_incidents if item.status == "verified"]
+
+
+def find_near_duplicates(probe: CIFailure, incidents: Iterable[HistoricalIncident]) -> list[KeywordIncidentMatch]:
+    """Return team incidents of any status that share enough distinctive terms with ``probe``."""
+
+    matches = find_similar_incident_matches(probe, incidents, limit=5, include_unverified=True)
+    return [match for match in matches if match.score >= NEAR_DUPLICATE_MIN_SCORE]
 
 
 def _incident_from_draft(draft: Mapping[str, Any], *, created: date | None, today: date) -> HistoricalIncident:
-    managed = sorted(_MANAGED_FIELDS & set(draft))
+    managed = sorted(MANAGED_FIELDS & set(draft))
     if managed:
         raise KnowledgeError(f"drafts may not set managed field(s): {', '.join(managed)}")
     if not draft.get("evidence"):
@@ -141,20 +156,16 @@ def _check_duplicates(incident: HistoricalIncident, others: list[HistoricalIncid
     fingerprint = incident.fingerprints[0]
     exact = [other.id for other in others if fingerprint in other.fingerprints]
     if exact:
-        raise KnowledgeError(f"duplicate of existing incident '{exact[0]}' (same dedup fingerprint)")
+        raise DuplicateIncidentError(f"duplicate of existing incident '{exact[0]}' (same dedup fingerprint)")
     probe = CIFailure(
         failure_text=" ".join([incident.title, incident.summary, *incident.keywords, *incident.evidence]),
         environment=incident.environment,
         category=incident.category,
     )
     # Pending and superseded knowledge is compared too, so a fix is not re-added unknowingly.
-    similar = [
-        f"{match.incident.id} (keyword score {match.score:g})"
-        for match in find_similar_incident_matches(probe, others, limit=5, include_unverified=True)
-        if match.score >= NEAR_DUPLICATE_MIN_SCORE
-    ]
+    similar = [f"{match.incident.id} (keyword score {match.score:g})" for match in find_near_duplicates(probe, others)]
     if similar and not allow_similar:
-        raise KnowledgeError(
+        raise DuplicateIncidentError(
             f"possible duplicate of: {', '.join(similar)}; update that incident, or pass --allow-similar if distinct"
         )
     return [f"similar to {item}" for item in similar]
@@ -190,9 +201,18 @@ def update_incident(
 
 
 def verify_incident(
-    knowledge: KnowledgeFile, incident_id: str, *, reviewer: str, today: date | None = None
+    knowledge: KnowledgeFile,
+    incident_id: str,
+    *,
+    reviewer: str,
+    validation: tuple[str, str] | None = None,
+    today: date | None = None,
 ) -> tuple[list[HistoricalIncident], HistoricalIncident]:
-    """Move a ``pending_review`` incident to ``verified`` if it meets the schema rules."""
+    """Move a ``pending_review`` incident to ``verified`` if it meets the schema rules.
+
+    ``validation`` is the reviewer's own ``(method, evidence)`` for the existing
+    fix. Approval alone never marks a fix validated.
+    """
 
     existing = _find(knowledge, incident_id)
     if existing.status != "pending_review":
@@ -201,9 +221,33 @@ def verify_incident(
         raise KnowledgeError("a reviewer name is required")
     record = existing.model_dump() | {"status": "verified", "reviewed_by": reviewer, "updated": today or _today()}
     try:
+        if validation is not None:
+            if existing.fix is None:
+                raise KnowledgeError(f"incident '{incident_id}' has no fix to validate; add one with an update")
+            method, evidence = validation
+            fix = existing.fix.model_dump() | {
+                "validation_status": "validated",
+                "validation_method": method,
+                "validation_evidence": evidence,
+            }
+            record["fix"] = IncidentFix.model_validate(fix)
         incident = HistoricalIncident.model_validate(record)
     except ValidationError as error:
         raise KnowledgeError(f"cannot verify '{incident_id}': {_validation_message(error)}") from error
+    return _replace(knowledge, incident), incident
+
+
+def reject_incident(
+    knowledge: KnowledgeFile, incident_id: str, *, reviewer: str, today: date | None = None
+) -> tuple[list[HistoricalIncident], HistoricalIncident]:
+    """Archive a ``pending_review`` incident as ``rejected``; it is kept but never matched."""
+
+    existing = _find(knowledge, incident_id)
+    if existing.status != "pending_review":
+        raise KnowledgeError(f"incident '{incident_id}' is {existing.status}; only pending_review can be rejected")
+    if not reviewer.strip():
+        raise KnowledgeError("a reviewer name is required")
+    incident = existing.model_copy(update={"status": "rejected", "reviewed_by": reviewer, "updated": today or _today()})
     return _replace(knowledge, incident), incident
 
 

@@ -147,3 +147,24 @@ def test_ollama_provider_never_opens_non_http_urls() -> None:
         assert provider.classify("prompt") is None
 
     mocked_urlopen.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("response_text", "valid"),
+    [
+        ('{"category": "network", "confidence": 0.4, "root_cause": "DNS", "suggested_fix": "Fix DNS"}', True),
+        ('{"category": "cosmic-rays", "confidence": 0.4, "root_cause": "x"}', False),
+        ("not json", False),
+    ],
+    ids=["valid", "invalid-category", "malformed"],
+)
+def test_ollama_provider_diagnose_validates_structured_output(response_text: str, valid: bool) -> None:
+    response = MagicMock()
+    response.read.return_value = json.dumps({"response": response_text}).encode()
+    response.__enter__.return_value = response
+    with patch("circa.llm.urlopen", return_value=response):
+        diagnosis = OllamaProvider().diagnose("prompt")
+
+    assert (diagnosis is not None) is valid
+    if diagnosis is not None:
+        assert diagnosis.suggested_fix == "Fix DNS"

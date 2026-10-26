@@ -18,8 +18,8 @@ CIRCA locally analyzes CI failures and identifies likely software, hardware, net
 - Keep external integrations optional.
 - Do not add Jenkins, Perforce, Slack, Kubernetes, cloud services, vector databases, RAG frameworks, agents, or large AI frameworks unless explicitly requested.
 - Never expose secrets, credentials, or sensitive CI data.
-- Historical knowledge: packaged incidents and the retrieval evaluation dataset are synthetic and read-only. Real knowledge lives only in an explicitly supplied team file, changed only by `circa knowledge` commands after human confirmation.
-- Ordinary analysis must never write knowledge or append raw CI logs. New incidents start as `pending_review`; only `verified` incidents are matched.
+- Historical knowledge: packaged incidents and the retrieval evaluation dataset are synthetic and read-only. Real knowledge lives only in an explicitly supplied team file, changed only by `circa knowledge` commands after human confirmation, or by `investigate-log` adding drafts.
+- `analyze`/`analyze-log` never write knowledge; `investigate-log` may only add `pending_review` drafts with sanitized evidence lines, never raw CI logs. Only `verified` incidents are matched.
 - Never mark a fix verified from LLM output or a single successful retry, and never invent validation evidence.
 
 ## Development

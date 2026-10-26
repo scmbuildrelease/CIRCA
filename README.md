@@ -174,6 +174,78 @@ CIRCA never changes thresholds or baselines. Recalibration requires human
 validation and approval. The assessment does not change the deterministic
 category or confidence. The example log is synthetic.
 
+## Investigating a CI log
+
+`circa investigate-log` runs the whole workflow on one raw log:
+
+1. The existing parser extracts failure lines; deterministic analysis runs as
+   in `analyze-log`.
+2. Verified historical incidents are checked first. If one has a validated fix
+   and matches strongly (same dedup fingerprint, or a keyword score of at least
+   4 that agrees with the deterministic category), its root cause, fix, and
+   validation evidence are returned and the LLM is **not** called.
+3. If the failure is already recorded in the team file (same dedup
+   fingerprint, or a near duplicate), that record is shown; no LLM call and no
+   new draft.
+4. Otherwise the optional local Ollama model is asked **once** for a structured
+   diagnosis hypothesis. The prompt holds only extracted failure lines (at most
+   3,000 characters, credential-looking lines removed), the deterministic
+   result, and up to three weak historical matches, never the raw log.
+5. A useful diagnosis (a category other than `unknown`) is saved to the
+   `--knowledge` file as a `pending_review` draft through the normal lifecycle
+   checks. Its evidence holds only log lines actually observed. The LLM's
+   output is recorded as `root_cause`, an unvalidated `fix`, and
+   `draft_origin` (model, confidence, validation steps, missing evidence,
+   related incidents).
+
+Prerequisites: an installed `circa`. Step 4 also needs a local
+[Ollama](https://ollama.com) server (`CIRCA_OLLAMA_URL`, default
+`http://localhost:11434`; model `CIRCA_LLM_MODEL`, default `llama3.2`).
+Without Ollama, or if the model's reply is invalid, CIRCA prints the
+deterministic analysis with a warning that the cause is still unconfirmed, and
+saves no draft. Without `--knowledge`, only the packaged incidents are used and
+nothing is written.
+
+Tutorial (copy and paste from the repository root; `demo-team.json` is a
+throwaway file):
+
+```bash
+# 1–2. Known failure: a verified incident with a validated fix answers it, with no LLM call.
+circa knowledge add examples/incident_draft.json --knowledge demo-team.json --yes
+circa knowledge verify team-hardware-scratch-disk-001 --reviewer "Your Name" --knowledge demo-team.json --yes
+circa investigate-log examples/demo_disk_full.log --knowledge demo-team.json
+
+# 3–4. Unknown failure: one local LLM call; the diagnosis is saved as a pending_review draft.
+circa investigate-log examples/demo_unknown_failure.log --knowledge demo-team.json --synthetic
+
+# 5. Review: list, inspect, optionally edit, then approve (or reject).
+circa knowledge list --pending --knowledge demo-team.json
+circa knowledge show draft-06a3cf72d814 --knowledge demo-team.json
+circa knowledge show draft-06a3cf72d814 --knowledge demo-team.json --json > draft.json
+# ...edit draft.json, then:
+circa knowledge update draft.json --knowledge demo-team.json --yes
+circa knowledge verify draft-06a3cf72d814 --reviewer "Your Name" --knowledge demo-team.json --yes \
+  --validation-method repeated_runs_passed \
+  --validation-evidence "Synthetic example: 3 consecutive packaging runs passed after renewal"
+# or: circa knowledge reject draft-06a3cf72d814 --reviewer "Your Name" --knowledge demo-team.json
+
+# 6. The approved knowledge now answers the same failure, with no LLM call.
+circa investigate-log examples/demo_unknown_failure.log --knowledge demo-team.json
+```
+
+The draft ID is derived from the failure's dedup fingerprint, so the same log
+always gives the same ID. Drop `--synthetic` for real failures. `--json` prints
+the whole investigation.
+
+**Approving is not validating.** `circa knowledge verify` accepts the record as
+reviewed knowledge. The fix becomes `validated` only when you supply
+`--validation-method` and `--validation-evidence` describing validation you
+actually did. A real (non-synthetic) incident cannot be approved without them,
+so it stays `pending_review`. A synthetic draft approved without them keeps an
+unvalidated fix: later investigations show it as an existing record but never
+as a known verified solution. A historical fix was validated for the recorded
+incident, not for your environment; confirm it applies.
+
 ## Team incident knowledge
 
 The packaged incidents and the retrieval evaluation dataset are synthetic and
@@ -188,13 +260,15 @@ circa analyze-log examples/demo_disk_full.log --knowledge team/incidents.json
 
 Without `--knowledge`, analysis and retrieval are unchanged. With it, only
 `verified` incidents from the file are matched alongside the packaged ones, and
-a matched verified incident's validated `root_cause` is reported. Analysis never
-writes the file; `circa benchmark` never reads it.
+a matched verified incident's validated `root_cause` is reported. `analyze` and
+`analyze-log` never write the file; `investigate-log` only adds
+`pending_review` drafts to it; `circa benchmark` never reads it.
 
 ### Lifecycle
 
 ```text
 pending_review ──(circa knowledge verify)──► verified ──(circa knowledge supersede)──► superseded
+       └──────(circa knowledge reject)──► rejected
 ```
 
 ```bash
@@ -202,7 +276,9 @@ circa knowledge add examples/incident_draft.json --knowledge team/incidents.json
 circa knowledge update revised_draft.json --knowledge team/incidents.json
 circa knowledge verify INCIDENT-ID --reviewer "Reviewer Name" --knowledge team/incidents.json
 circa knowledge supersede OLD-ID --by NEW-ID --knowledge team/incidents.json
-circa knowledge list --knowledge team/incidents.json
+circa knowledge reject INCIDENT-ID --reviewer "Reviewer Name" --knowledge team/incidents.json
+circa knowledge show INCIDENT-ID --knowledge team/incidents.json [--json]
+circa knowledge list --knowledge team/incidents.json [--pending]
 circa knowledge validate team/incidents.json
 ```
 
@@ -210,8 +286,10 @@ circa knowledge validate team/incidents.json
   `examples/incident_draft.json`. `add` always stores it as `pending_review`
   and computes its deduplication fingerprint. Drafts may not set `status`,
   `fingerprints`, `reviewed_by`, `superseded_by`, `created`, or `updated`.
-- Only `pending_review` incidents can be updated. A verified incident is
-  replaced by adding a new incident and superseding the old one.
+- Only `pending_review` incidents can be updated, approved, or rejected. A
+  verified incident is replaced by adding a new incident and superseding the
+  old one. Rejected drafts are kept for the record but never matched.
+- `show --json` prints an editable draft (managed fields removed) for `update`.
 - Every write shows the record and asks for confirmation (or takes `--yes`),
   then writes atomically. It refuses if the file changed since it was read.
 - Commands exit with status 1 on any validation error or declined write.
@@ -226,8 +304,10 @@ circa knowledge validate team/incidents.json
   `reproduced_then_fixed`, `regression_test_added`, `repeated_runs_passed`
   (the evidence must state at least 3 runs), and `manual_verification`. A
   single successful retry is not a validation method.
-- LLM output never fills these fields: the commands read only human-written
-  drafts, and `--llm` results are never stored.
+- LLM output never validates a fix. `investigate-log` drafts store the LLM's
+  hypothesis as `root_cause` and an `unvalidated` fix, marked by
+  `draft_origin.ai_generated`. Only a human reviewer's `--validation-*` options
+  or an edited draft can mark a fix `validated`. `--llm` results are never stored.
 - `evidence` holds at most 10 single-line excerpts of at most 300 characters,
   never raw logs. Text matching obvious credential patterns (private-key
   headers, AWS, GitHub, and Slack tokens, `password=`-style assignments) is

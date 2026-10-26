@@ -12,6 +12,12 @@ _FAILURE_SIGNAL = re.compile(
 _REPEATED_PREFIX = re.compile(r"^(?:\[[^\]]+\]\s*)?(?:info|debug|notice)\b", re.IGNORECASE)
 
 
+def has_failure_signal(line: str) -> bool:
+    """Return whether a log line contains a recognized failure signal."""
+
+    return _FAILURE_SIGNAL.search(line) is not None
+
+
 def extract_failure_text(raw_log: str, context_before: int = 1, context_after: int = 2) -> str:
     """Return compact failure evidence, including nearby non-repetitive context.
 

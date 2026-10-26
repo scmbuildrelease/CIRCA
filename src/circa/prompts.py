@@ -1,6 +1,10 @@
 """Compact prompts for optional local explanations."""
 
-from .models import AnalysisResult, CIFailure
+from .models import AnalysisResult, CIFailure, HistoricalIncident
+
+# Upper bound on extracted log text sent to a local LLM; whole lines are kept.
+MAX_PROMPT_LOG_CHARS = 3000
+MAX_PROMPT_REFERENCES = 3
 
 
 def build_explanation_prompt(failure_text: str, result: AnalysisResult) -> str:
@@ -35,3 +39,40 @@ def build_classification_prompt(failure: CIFailure, result: AnalysisResult) -> s
         f"Environment: {environment}\n"
         f"Historical matches: {matches}"
     )
+
+
+def _bounded_lines(text: str, limit: int = MAX_PROMPT_LOG_CHARS) -> str:
+    kept: list[str] = []
+    size = 0
+    for line in text.splitlines():
+        if size + len(line) + 1 > limit:
+            break
+        kept.append(line)
+        size += len(line) + 1
+    return "\n".join(kept)
+
+
+def build_diagnosis_prompt(failure: CIFailure, result: AnalysisResult, references: list[HistoricalIncident]) -> str:
+    """Build a bounded prompt for a structured diagnosis hypothesis.
+
+    Only extracted failure lines, any supplied environment, the deterministic
+    result, and a few weak historical references are included; never the raw log.
+    """
+
+    sections = [
+        (
+            "Diagnose this CI failure using only the supplied log lines. Return JSON only, with fields: "
+            "category (one of hardware, software, network, infrastructure, unknown), confidence (0 to 1), "
+            "root_cause, evidence (log lines quoted verbatim), suggested_fix, validation_steps (concrete checks "
+            "that would confirm the fix), missing_evidence. The root cause is a hypothesis; use unknown and a low "
+            "confidence when evidence is insufficient. Do not invent facts."
+        ),
+        f"Log lines:\n{_bounded_lines(failure.failure_text)}",
+        f"Deterministic analysis: {result.category} ({result.confidence:.2f}); {result.root_cause}",
+    ]
+    if failure.environment:
+        sections.append("Environment: " + ", ".join(f"{key}={value}" for key, value in failure.environment.items()))
+    if references:
+        weak = "; ".join(f"{item.id}: {item.title}" for item in references[:MAX_PROMPT_REFERENCES])
+        sections.append(f"Weak historical matches (not confirmed): {weak}")
+    return "\n".join(sections)

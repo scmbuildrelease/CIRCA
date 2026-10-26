@@ -1,0 +1,41 @@
+{
+  "id": "real-tt-metal-protected-tag-update-001",
+  "title": "GitHub Actions release failed updating a protected Git tag",
+  "category": "infrastructure",
+  "summary": "The tt-metal release workflow failed because GitHub rejected an operation on a protected Git ref. The exact tag and SHA conflict remain unconfirmed.",
+  "keywords": [
+    "GitHub Actions",
+    "tt-metal",
+    "release",
+    "protected ref",
+    "Repository rule violations found",
+    "Cannot update this protected ref",
+    "HttpError",
+    "git tag",
+    "updateRef"
+  ],
+  "environment": {
+    "ci": "GitHub Actions",
+    "repository": "tenstorrent/tt-metal",
+    "workflow": "Package and release",
+    "job": "create-tag / verify-create-new-tag",
+    "release_ref": "v0.81.1-rc2",
+    "commit": "d80d948"
+  },
+  "recommendation": "Inspect the full job log and identify the actual tag and commit SHAs. Do not automatically force-move a protected release tag. If a tag points to a different commit, stop with a clear diagnostic and determine whether a new version tag is appropriate.",
+  "synthetic": false,
+  "evidence": [
+    "HttpError: Repository rule violations found",
+    "Cannot update this protected ref."
+  ],
+  "root_cause": "Unconfirmed hypothesis: the release workflow may have attempted to update an existing protected Git tag to a different commit.",
+  "fix": {
+    "description": "Detect a tag-to-SHA mismatch and stop the release instead of automatically moving a protected tag.",
+    "validation_status": "unvalidated",
+    "references": [
+      "https://github.com/tenstorrent/tt-metal/actions/runs/40072645356",
+      "https://github.com/tenstorrent/tt-metal/blob/main/.github/workflows/release-verify-or-create-tag.yaml",
+      "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets"
+    ]
+  }
+}

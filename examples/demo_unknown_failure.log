@@ -1,0 +1,5 @@
+2026-10-24T09:30:02Z [INFO] Starting firmware packaging stage on ci-pack-03
+2026-10-24T09:30:05Z [INFO] Requesting signing certificate from local signing service
+2026-10-24T09:30:07Z [ERROR] signtool rejected bundle: certificate chain expired on 2026-10-23
+2026-10-24T09:30:07Z [ERROR] firmware packaging aborted: unsigned bundle is not allowed
+2026-10-24T09:30:08Z [INFO] Uploading partial packaging logs
