@@ -168,3 +168,87 @@ def test_ollama_provider_diagnose_validates_structured_output(response_text: str
     assert (diagnosis is not None) is valid
     if diagnosis is not None:
         assert diagnosis.suggested_fix == "Fix DNS"
+
+
+# The confirmed qwen2.5:1.5b response: valid JSON, but missing_evidence is the string "None".
+QWEN_DIAGNOSIS = {
+    "category": "software",
+    "confidence": 0.0,
+    "root_cause": "Insufficient deterministic evidence to identify a root cause.",
+    "evidence": [
+        "2026-10-24T09:30:07Z [ERROR] signtool rejected bundle: certificate chain expired on 2026-10-23",
+        "2026-10-24T09:30:07Z [ERROR] firmware packaging aborted: unsigned bundle is not allowed",
+    ],
+    "suggested_fix": "Review the signing certificate and firmware packaging configuration.",
+    "validation_steps": ["Verify the signing certificate is valid and not expired."],
+    "missing_evidence": "None",
+}
+
+
+def _diagnose(response_text: str):
+    response = MagicMock()
+    response.read.return_value = json.dumps({"response": response_text}).encode()
+    response.__enter__.return_value = response
+    with patch("circa.llm.urlopen", return_value=response):
+        return OllamaProvider(model="qwen2.5:1.5b", url="http://ollama.test").diagnose("prompt")
+
+
+def test_diagnose_accepts_the_confirmed_missing_evidence_none_string() -> None:
+    diagnosis = _diagnose(json.dumps(QWEN_DIAGNOSIS))
+
+    assert diagnosis is not None
+    assert diagnosis.missing_evidence == []
+    assert diagnosis.evidence == QWEN_DIAGNOSIS["evidence"]
+
+
+@pytest.mark.parametrize("value", ["None", "none", "N/A", "", "  ", None], ids=repr)
+@pytest.mark.parametrize("field", ["evidence", "validation_steps", "missing_evidence"])
+def test_diagnose_treats_empty_markers_and_null_as_empty_lists(field: str, value: str | None) -> None:
+    diagnosis = _diagnose(json.dumps(QWEN_DIAGNOSIS | {field: value}))
+
+    assert diagnosis is not None
+    assert getattr(diagnosis, field) == []
+
+
+@pytest.mark.parametrize("field", ["evidence", "validation_steps", "missing_evidence"])
+def test_diagnose_wraps_a_single_non_empty_string_in_a_list(field: str) -> None:
+    diagnosis = _diagnose(json.dumps(QWEN_DIAGNOSIS | {field: "  Signing service expiry logs.  "}))
+
+    assert diagnosis is not None
+    assert getattr(diagnosis, field) == ["Signing service expiry logs."]
+
+
+def test_diagnose_keeps_correctly_typed_lists_unchanged() -> None:
+    expected = QWEN_DIAGNOSIS | {"missing_evidence": ["Signing service logs."]}
+
+    diagnosis = _diagnose(json.dumps(expected))
+
+    assert diagnosis is not None
+    assert diagnosis.model_dump() == expected
+
+
+@pytest.mark.parametrize(
+    "response_text",
+    [
+        "not json",
+        '```json\n{"category": "network"}\n```',
+        json.dumps(["not", "an", "object"]),
+        json.dumps(QWEN_DIAGNOSIS | {"missing_evidence": {"detail": "logs"}}),
+        json.dumps(QWEN_DIAGNOSIS | {"validation_steps": 3}),
+        json.dumps(QWEN_DIAGNOSIS | {"evidence": [1, 2]}),
+        json.dumps(QWEN_DIAGNOSIS | {"root_cause": None}),
+        json.dumps(QWEN_DIAGNOSIS | {"confidence": "high"}),
+    ],
+    ids=[
+        "invalid-json",
+        "fenced",
+        "array",
+        "object-list",
+        "number-list",
+        "number-items",
+        "null-root",
+        "bad-confidence",
+    ],
+)
+def test_diagnose_still_rejects_malformed_responses(response_text: str) -> None:
+    assert _diagnose(response_text) is None

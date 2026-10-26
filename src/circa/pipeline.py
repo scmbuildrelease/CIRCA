@@ -185,8 +185,8 @@ def investigate_log(
     category = analysis.category if analysis.category != "unknown" else diagnosis.category
     if analysis.category != "unknown" and diagnosis.category != analysis.category:
         notes.append(f"LLM suggested {diagnosis.category}; keeping deterministic category {analysis.category}.")
-    if category == "unknown":
-        notes += ["The LLM could not identify a cause; no draft was created.", unknowns]
+    if category == "unknown" or diagnosis.confidence == 0.0:
+        notes += ["The LLM could not identify a cause with any confidence; no draft was created.", unknowns]
         return Investigation(outcome="deterministic_only", llm_called=True, diagnosis=diagnosis, notes=notes, **base)
 
     draft: dict[str, Any] = {

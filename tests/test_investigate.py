@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
@@ -292,3 +292,70 @@ def test_draft_records_validate_as_historical_incidents() -> None:
     assert investigation.draft is not None
     record = investigation.draft | {"status": "pending_review"}
     assert HistoricalIncident.model_validate(record).draft_origin is not None
+
+
+def _ollama_returning(payload: object):
+    response = MagicMock()
+    response.read.return_value = json.dumps({"response": json.dumps(payload)}).encode()
+    response.__enter__.return_value = response
+    return patch("circa.llm.urlopen", return_value=response)
+
+
+def test_string_list_fields_from_ollama_flow_through_to_a_pending_draft(tmp_path: Path) -> None:
+    path = tmp_path / "team.json"
+    payload = _diagnosis(confidence=0.5).model_dump() | {"missing_evidence": "None", "validation_steps": "Re-sign."}
+
+    with _ollama_returning(payload):
+        result = runner.invoke(app, ["investigate-log", str(UNKNOWN_LOG), "--knowledge", str(path)])
+
+    assert result.exit_code == 0, result.output
+    [draft] = json.loads(path.read_text())
+    assert draft["status"] == "pending_review"
+    assert draft["fix"]["validation_status"] == "unvalidated"
+    assert draft["draft_origin"]["missing_evidence"] == []
+    assert draft["draft_origin"]["validation_steps"] == ["Re-sign."]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [{"category": "software", "confidence": 0.5, "root_cause": "x", "missing_evidence": {"a": 1}}, "free text"],
+    ids=["invalid-list", "not-an-object"],
+)
+def test_invalid_ollama_diagnosis_falls_back_without_writing_knowledge(tmp_path: Path, payload: object) -> None:
+    path = tmp_path / "team.json"
+
+    with _ollama_returning(payload):
+        result = runner.invoke(app, ["investigate-log", str(UNKNOWN_LOG), "--knowledge", str(path), "--json"])
+
+    assert result.exit_code == 0
+    report = json.loads(result.stdout)
+    assert report["outcome"] == "deterministic_only"
+    assert report["analysis"] == json.loads(analyze_log(UNKNOWN_LOG.read_text()).model_dump_json(exclude_none=True))
+    assert "Local LLM unavailable or returned an invalid response" in result.output
+    assert not path.exists()
+
+
+def test_zero_confidence_diagnosis_is_shown_but_not_drafted(tmp_path: Path) -> None:
+    # The confirmed qwen2.5:1.5b reply: it echoes "insufficient evidence" with zero confidence.
+    payload = _diagnosis(category="software", confidence=0.0).model_dump() | {"missing_evidence": "None"}
+    path = tmp_path / "team.json"
+
+    with _ollama_returning(payload):
+        result = runner.invoke(app, ["investigate-log", str(UNKNOWN_LOG), "--knowledge", str(path), "--json"])
+
+    report = json.loads(result.stdout)
+    assert result.exit_code == 0
+    assert report["outcome"] == "deterministic_only"
+    assert report["diagnosis"]["missing_evidence"] == []
+    assert "draft" not in report
+    assert not path.exists()
+
+
+def test_known_solution_is_still_returned_before_ollama_is_contacted(tmp_path: Path) -> None:
+    path = _verified_example(tmp_path)
+
+    with patch("circa.llm.urlopen") as urlopen:
+        result = runner.invoke(app, ["investigate-log", str(DISK_LOG), "--knowledge", str(path), "--json"])
+
+    assert json.loads(result.stdout)["outcome"] == "known_solution"
+    urlopen.assert_not_called()

@@ -61,15 +61,19 @@ def build_diagnosis_prompt(failure: CIFailure, result: AnalysisResult, reference
 
     sections = [
         (
-            "Diagnose this CI failure using only the supplied log lines. Return JSON only, with fields: "
-            "category (one of hardware, software, network, infrastructure, unknown), confidence (0 to 1), "
-            "root_cause, evidence (log lines quoted verbatim), suggested_fix, validation_steps (concrete checks "
-            "that would confirm the fix), missing_evidence. The root cause is a hypothesis; use unknown and a low "
-            "confidence when evidence is insufficient. Do not invent facts."
+            "Diagnose this CI failure using only the supplied log lines. Return one JSON object only, without "
+            "Markdown code fences, with fields: category (one of hardware, software, network, infrastructure, "
+            "unknown), confidence (number from 0 to 1), root_cause (string), evidence (array of supplied log "
+            "lines quoted verbatim), suggested_fix (string), validation_steps (array of strings: concrete checks "
+            "that would confirm the fix), missing_evidence (array of strings; use [] when nothing is missing). "
+            "List fields must always be JSON arrays of strings. The root cause is an unverified hypothesis; use "
+            "unknown and a low confidence when evidence is insufficient. Do not invent facts."
         ),
         f"Log lines:\n{_bounded_lines(failure.failure_text)}",
-        f"Deterministic analysis: {result.category} ({result.confidence:.2f}); {result.root_cause}",
     ]
+    # An unknown deterministic result adds no facts, and small models tend to echo it as their answer.
+    if result.category != "unknown":
+        sections.append(f"Deterministic analysis: {result.category} ({result.confidence:.2f}); {result.root_cause}")
     if failure.environment:
         sections.append("Environment: " + ", ".join(f"{key}={value}" for key, value in failure.environment.items()))
     if references:

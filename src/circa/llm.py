@@ -15,6 +15,30 @@ from pydantic import ValidationError
 from .models import AnalysisResult, CIFailure, HistoricalIncident, LLMClassification, LLMDiagnosis
 from .prompts import build_classification_prompt, build_diagnosis_prompt, build_explanation_prompt
 
+# List-valued diagnosis fields, and the strings small models use to mean "nothing".
+_DIAGNOSIS_LIST_FIELDS = ("evidence", "validation_steps", "missing_evidence")
+_EMPTY_LIST_MARKERS = frozenset({"", "none", "n/a", "null"})
+
+
+def _normalize_diagnosis_lists(data: object) -> object:
+    """Fix common small-model list mistakes before strict validation.
+
+    ``null`` or an "empty" marker string becomes ``[]``; another string becomes a
+    one-item list. Any other type is left unchanged so validation rejects it.
+    """
+
+    if not isinstance(data, dict):
+        return data
+    normalized = dict(data)
+    for field in _DIAGNOSIS_LIST_FIELDS:
+        value = normalized.get(field)
+        if field in normalized and value is None:
+            normalized[field] = []
+        elif isinstance(value, str):
+            text = value.strip()
+            normalized[field] = [] if text.lower() in _EMPTY_LIST_MARKERS else [text]
+    return normalized
+
 
 class LLMProvider(Protocol):
     """A small interface for optional explanation providers."""
@@ -111,9 +135,11 @@ class OllamaProvider:
         """Return a validated structured diagnosis hypothesis, when available."""
 
         response_text = self._generate_json(prompt)
+        if response_text is None:
+            return None
         try:
-            return LLMDiagnosis.model_validate_json(response_text) if response_text is not None else None
-        except ValidationError:
+            return LLMDiagnosis.model_validate(_normalize_diagnosis_lists(json.loads(response_text)))
+        except (ValueError, ValidationError):
             return None
 
 
