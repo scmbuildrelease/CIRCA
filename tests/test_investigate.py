@@ -44,6 +44,20 @@ def _diagnosis(**overrides: object) -> LLMDiagnosis:
     return LLMDiagnosis.model_validate(fields | overrides)
 
 
+DISK_LINE = "2026-10-22T10:14:16Z [ERROR] linker output could not be written: no space left on device"
+
+
+def _disk_diagnosis(**overrides: object) -> LLMDiagnosis:
+    fields = {
+        "category": "hardware",
+        "root_cause": "Hypothesis: the worker filesystem is full, so there is no space left on device.",
+        "evidence": [DISK_LINE],
+        "suggested_fix": "Free space on the worker filesystem.",
+        "validation_steps": ["Confirm the worker filesystem has free space before the linker runs."],
+    }
+    return _diagnosis(**(fields | overrides))
+
+
 def _invoke(provider: FakeProvider, *args: str):
     with patch("circa.cli.OllamaProvider", return_value=provider):
         return runner.invoke(app, ["investigate-log", *args])
@@ -102,7 +116,7 @@ def test_unknown_failure_calls_the_llm_once_and_saves_a_pending_draft(tmp_path: 
 
 def test_weak_or_unvalidated_history_is_not_a_confirmed_solution() -> None:
     # Packaged incidents match the disk log but carry no validated fix.
-    provider = FakeProvider(_diagnosis(category="hardware"))
+    provider = FakeProvider(_disk_diagnosis())
 
     investigation = investigate_log(DISK_LOG.read_text(), [], provider, source_name="disk.log")
 
@@ -262,7 +276,7 @@ def test_secrets_are_neither_sent_nor_persisted(tmp_path: Path) -> None:
 
     saved = _invoke(provider, str(log), "--knowledge", str(path))
     leaky = _invoke(
-        FakeProvider(_diagnosis(root_cause=f"The job used {secret}.")),
+        FakeProvider(_diagnosis(root_cause=f"Certificate chain expired; the job used {secret}.")),
         str(log),
         "--knowledge",
         str(tmp_path / "b.json"),
@@ -276,7 +290,7 @@ def test_secrets_are_neither_sent_nor_persisted(tmp_path: Path) -> None:
 
 
 def test_without_knowledge_nothing_is_written_and_analysis_is_unchanged(tmp_path: Path) -> None:
-    result = _invoke(FakeProvider(_diagnosis()), str(DISK_LOG), "--json")
+    result = _invoke(FakeProvider(_disk_diagnosis()), str(DISK_LOG), "--json")
     analyzed = runner.invoke(app, ["analyze-log", str(DISK_LOG), "--json"])
 
     assert result.exit_code == 0
@@ -303,7 +317,10 @@ def _ollama_returning(payload: object):
 
 def test_string_list_fields_from_ollama_flow_through_to_a_pending_draft(tmp_path: Path) -> None:
     path = tmp_path / "team.json"
-    payload = _diagnosis(confidence=0.5).model_dump() | {"missing_evidence": "None", "validation_steps": "Re-sign."}
+    payload = _diagnosis(confidence=0.5).model_dump() | {
+        "missing_evidence": "None",
+        "validation_steps": "Re-sign the bundle with a renewed certificate.",
+    }
 
     with _ollama_returning(payload):
         result = runner.invoke(app, ["investigate-log", str(UNKNOWN_LOG), "--knowledge", str(path)])
@@ -313,7 +330,7 @@ def test_string_list_fields_from_ollama_flow_through_to_a_pending_draft(tmp_path
     assert draft["status"] == "pending_review"
     assert draft["fix"]["validation_status"] == "unvalidated"
     assert draft["draft_origin"]["missing_evidence"] == []
-    assert draft["draft_origin"]["validation_steps"] == ["Re-sign."]
+    assert draft["draft_origin"]["validation_steps"] == ["Re-sign the bundle with a renewed certificate."]
 
 
 @pytest.mark.parametrize(
@@ -359,3 +376,172 @@ def test_known_solution_is_still_returned_before_ollama_is_contacted(tmp_path: P
 
     assert json.loads(result.stdout)["outcome"] == "known_solution"
     urlopen.assert_not_called()
+
+
+def _investigate(diagnosis: LLMDiagnosis, log: Path = UNKNOWN_LOG):
+    return investigate_log(log.read_text(), [], FakeProvider(diagnosis), source_name=log.name)
+
+
+def test_low_but_nonzero_confidence_still_drafts_a_grounded_hypothesis() -> None:
+    investigation = _investigate(_diagnosis(confidence=0.05))
+
+    assert investigation.outcome == "new_diagnosis"
+    assert investigation.draft is not None
+    assert investigation.draft["draft_origin"]["confidence"] == 0.05
+
+
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"evidence": []}, "quoted no line that appears in the log"),
+        ({"evidence": ["disk quota exceeded on build volume"]}, "quoted no line that appears in the log"),
+        ({"evidence": ["expired"]}, "quoted no line that appears in the log"),  # a fragment, not a log fact
+        (
+            {"root_cause": "Insufficient deterministic evidence to identify a root cause."},
+            "root cause is not grounded in the log",
+        ),
+        ({"root_cause": "A flaky network switch dropped packets."}, "root cause is not grounded in the log"),
+        ({"confidence": 0.0}, "zero confidence"),
+        ({"category": "unknown"}, "no category was identified"),
+    ],
+    ids=["no-evidence", "invented-evidence", "fragment", "placeholder-cause", "unrelated-cause", "zero", "unknown"],
+)
+def test_unsupported_diagnoses_do_not_create_drafts(overrides: dict, reason: str) -> None:
+    investigation = _investigate(_diagnosis(**overrides))
+
+    assert investigation.outcome == "deterministic_only"
+    assert investigation.draft is None
+    assert any(reason in note for note in investigation.notes)
+
+
+@pytest.mark.parametrize(
+    ("fix", "reason"),
+    [
+        ("Upgrade the Python interpreter on all runners.", "is unrelated to the log"),
+        ("Allow unsigned bundles in the firmware packaging policy.", "would weaken a safeguard"),
+        ("Disable certificate chain checks in signtool.", "would weaken a safeguard"),
+    ],
+    ids=["unrelated", "contradicts-log", "disables-check"],
+)
+def test_unsupported_or_unsafe_fixes_are_kept_out_of_the_draft(fix: str, reason: str) -> None:
+    unsafe_step = "Skip certificate validation when packaging the bundle."
+    diagnosis = _diagnosis(suggested_fix=fix, validation_steps=[unsafe_step, "Confirm signtool accepts the bundle."])
+
+    investigation = _investigate(diagnosis)
+
+    draft = investigation.draft
+    assert draft is not None
+    assert "fix" not in draft
+    assert draft["recommendation"] == investigation.analysis.recommendation
+    assert draft["draft_origin"]["validation_steps"] == ["Confirm signtool accepts the bundle."]
+    assert any(reason in note and fix in note for note in investigation.notes)
+    assert any(unsafe_step in note for note in investigation.notes)
+
+
+def test_draft_records_category_and_evidence_provenance() -> None:
+    quote = SIGNTOOL_LINE.split("] ", 1)[1]
+    llm_category = _investigate(_diagnosis(evidence=[quote, "made up line"]))
+    historical = _investigate(_disk_diagnosis(category="software"), DISK_LOG)
+
+    origin = llm_category.draft["draft_origin"]
+    assert llm_category.analysis.category == "unknown"
+    assert origin["category_source"] == "llm"
+    assert origin["cited_log_lines"] == [quote]
+    assert llm_category.draft["evidence"][0] == SIGNTOOL_LINE  # facts come from the log, not the model
+    assert origin["missing_evidence"]  # recorded as a qualification, not a blocker
+    assert historical.draft["category"] == "hardware"
+    assert historical.draft["draft_origin"]["category_source"] == "historical"
+    assert "LLM suggested software; keeping deterministic category hardware." in historical.notes
+
+
+def test_lifecycle_from_unknown_failure_to_reused_verified_knowledge(tmp_path: Path) -> None:
+    path = tmp_path / "team.json"
+    knowledge = ["--knowledge", str(path)]
+
+    # 1–2. Unknown failure: one LLM call creates a pending_review draft.
+    first = FakeProvider(_diagnosis())
+    assert _invoke(first, str(UNKNOWN_LOG), *knowledge).exit_code == 0
+    [draft] = json.loads(path.read_text())
+    assert len(first.prompts) == 1 and draft["status"] == "pending_review"
+
+    # 3. Pending drafts are never matched by analysis.
+    before = json.loads(runner.invoke(app, ["analyze-log", str(UNKNOWN_LOG), *knowledge, "--json"]).output)
+    assert draft["id"] not in before["matched_incident_ids"]
+
+    # 4. Explicit approval with the reviewer's own validation evidence.
+    approve = ["knowledge", "verify", draft["id"], *knowledge, "--reviewer", "r", "--yes"]
+    evidence = ["--validation-method", "manual_verification", "--validation-evidence", "Re-signed and packaged."]
+    assert runner.invoke(app, [*approve, *evidence]).exit_code == 0
+
+    # 5–6. A later run of the same failure is answered from verified knowledge without the LLM.
+    later = tmp_path / "later.log"
+    later.write_text(UNKNOWN_LOG.read_text().replace("2026-10-24T09:30", "2026-11-02T17:45").replace("03", "07"))
+    second = FakeProvider(_diagnosis())
+    result = _invoke(second, str(later), *knowledge, "--json")
+    assert json.loads(result.stdout)["outcome"] == "known_solution"
+    assert json.loads(result.stdout)["matched_incident"]["id"] == draft["id"]
+    assert second.prompts == []
+
+    # 7. Invalid LLM output for a new failure writes nothing.
+    other = tmp_path / "other.log"
+    other.write_text("2026-11-02T18:00:00Z [ERROR] artifact checksum mismatch for firmware image\n")
+    approved = path.read_bytes()
+    with _ollama_returning({"category": "software", "confidence": "high", "root_cause": "x"}):
+        invalid = runner.invoke(app, ["investigate-log", str(other), *knowledge])
+    assert invalid.exit_code == 0 and path.read_bytes() == approved
+
+
+# Regression cases replay qwen2.5:1.5b output observed in the pilot (see README "Piloting on real logs").
+TT_METAL_LOG = Path(__file__).parent / "fixtures" / "real_incidents" / "tt-metal-protected-tag.log"
+
+
+def test_suggestions_using_matched_history_wording_are_kept() -> None:
+    # The log says "device" and "filesystem"; the matched disk incident says "disk" and "worker".
+    diagnosis = _diagnosis(
+        category="hardware",
+        root_cause="no space left on device",
+        evidence=["ERROR: no space left on device"],
+        suggested_fix="Increase worker disk space or free up space on the worker disk.",
+        validation_steps=["Check the worker disk space usage", "Upgrade the Python interpreter on all runners."],
+    )
+
+    investigation = _investigate(diagnosis, EXAMPLES / "hardware_failure.log")
+
+    draft = investigation.draft
+    assert draft is not None and "synthetic-hardware-disk-001" in investigation.analysis.matched_incident_ids
+    assert draft["fix"]["description"] == "Increase worker disk space or free up space on the worker disk."
+    assert draft["draft_origin"]["validation_steps"] == ["Check the worker disk space usage"]
+
+
+def test_plural_wording_counts_as_grounded() -> None:
+    diagnosis = _diagnosis(
+        category="infrastructure",
+        root_cause="Repository rule violations found",
+        evidence=["HttpError: Repository rule violations found"],
+        suggested_fix="Check and resolve repository rule violations.",
+        validation_steps=["Verify repository rules are up-to-date and correctly configured."],
+    )
+
+    investigation = _investigate(diagnosis, TT_METAL_LOG)
+
+    assert investigation.draft is not None
+    assert investigation.draft["draft_origin"]["validation_steps"] == diagnosis.validation_steps
+
+
+def test_matched_history_never_rescues_a_safeguard_weakening_fix() -> None:
+    diagnosis = _disk_diagnosis(suggested_fix="Skip the worker disk space check before the build.")
+
+    investigation = _investigate(diagnosis, DISK_LOG)
+
+    assert investigation.draft is not None and "fix" not in investigation.draft
+    assert any("would weaken a safeguard" in note for note in investigation.notes)
+
+
+def test_json_output_stays_valid_when_a_draft_is_saved(tmp_path: Path) -> None:
+    path = tmp_path / "team.json"
+
+    result = _invoke(FakeProvider(_diagnosis()), str(UNKNOWN_LOG), "--knowledge", str(path), "--json")
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["outcome"] == "new_diagnosis"
+    assert "Draft saved: draft-" in result.stderr

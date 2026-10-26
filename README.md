@@ -191,11 +191,23 @@ category or confidence. The example log is synthetic.
    diagnosis hypothesis. The prompt holds only extracted failure lines (at most
    3,000 characters, credential-looking lines removed), the deterministic
    result, and up to three weak historical matches, never the raw log.
-5. A useful diagnosis (a category other than `unknown`) is saved to the
-   `--knowledge` file as a `pending_review` draft through the normal lifecycle
-   checks. Its evidence holds only log lines actually observed. The LLM's
-   output is recorded as `root_cause`, an unvalidated `fix`, and
-   `draft_origin` (model, confidence, validation steps, missing evidence,
+5. A useful diagnosis is saved to the `--knowledge` file as a
+   `pending_review` draft through the normal lifecycle checks. Each check
+   below is independent, and there is no confidence cut-off beyond the model's
+   own `0`. A draft requires:
+   - a category, from the analyzer or, only when it found none, from the LLM;
+   - a root cause sharing at least two distinctive terms with the log (the
+     analyzer's own evidence minimum);
+   - at least one LLM quote that is part of an actual log line.
+
+   A suggested fix or validation step that shares fewer than two terms with
+   the log and the historical incidents the analyzer matched, or that
+   would weaken a safeguard (disable, skip, bypass, ignore, unsigned,
+   `--force`, thresholds, baselines), is left out of the draft and named in a
+   note. Missing evidence qualifies a draft but does not block it. The draft's
+   `evidence` holds only observed log lines. The LLM's output is recorded as
+   `root_cause`, an unvalidated `fix`, and `draft_origin` (model, confidence,
+   `category_source`, cited log lines, validation steps, missing evidence,
    related incidents).
 
 Prerequisites: an installed `circa`. Step 4 also needs a local
@@ -245,6 +257,28 @@ so it stays `pending_review`. A synthetic draft approved without them keeps an
 unvalidated fix: later investigations show it as an existing record but never
 as a known verified solution. A historical fix was validated for the recorded
 incident, not for your environment; confirm it applies.
+
+### Piloting on real logs
+
+Evaluate diagnosis quality on sanitized real logs with the existing commands
+only, in an ignored `pilot/` directory so nothing is committed or written to
+team knowledge:
+
+```bash
+mkdir -p pilot && cp team/incidents.json pilot/knowledge.json   # isolated copy; never the original
+# Copy each sanitized log into pilot/ (no secrets, customer data, or private URLs).
+circa investigate-log pilot/failure.log --knowledge pilot/knowledge.json --json > pilot/failure.json
+circa knowledge list --pending --knowledge pilot/knowledge.json
+circa knowledge show DRAFT-ID --knowledge pilot/knowledge.json
+```
+
+Record, per log: the confirmed root cause (if any), `analysis.category`,
+`outcome`, `llm_called`, whether a draft was created, `notes` (ignored quotes
+and omitted suggestions), and your judgment of the hypothesis and fix. Do not
+run `knowledge verify` in a pilot unless a reviewer actually validated the fix,
+and never run a suggested fix from the output. To check reuse, approve in the
+pilot copy with real validation evidence, then rerun `investigate-log` on a
+later log of the same failure.
 
 ## Team incident knowledge
 

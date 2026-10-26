@@ -24,3 +24,6 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Local real-log pilots (never commit real logs)
+pilot/

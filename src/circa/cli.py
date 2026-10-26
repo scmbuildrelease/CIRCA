@@ -275,6 +275,8 @@ def _print_incident(incident: HistoricalIncident) -> None:
         for item in origin.missing_evidence:
             typer.echo(f"Missing evidence: {item}")
         typer.echo(f"Related incidents: {', '.join(origin.related_incident_ids) or 'none'}")
+        if origin.category_source:
+            typer.echo(f"Category source: {origin.category_source}")
 
 
 def _save_draft(path: Path, draft: dict[str, Any]) -> None:
@@ -289,8 +291,9 @@ def _save_draft(path: Path, draft: dict[str, Any]) -> None:
         return
     except (KnowledgeError, OSError) as error:
         raise _fail(KnowledgeError(f"draft not saved: {error}")) from error
-    typer.echo(f"Draft saved: {incident.id} (pending_review) in {path}")
-    typer.echo(f"Review it: circa knowledge show {incident.id} --knowledge {path}")
+    # Status goes to stderr like other notes, so --json output stays parseable.
+    typer.echo(f"Draft saved: {incident.id} (pending_review) in {path}", err=True)
+    typer.echo(f"Review it: circa knowledge show {incident.id} --knowledge {path}", err=True)
 
 
 def _print_investigation(investigation: Investigation) -> None:

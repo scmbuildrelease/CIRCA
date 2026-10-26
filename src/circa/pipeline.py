@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from typing import Any, Literal
 
@@ -9,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from .analyzer import analyze_failure
 from .fingerprint import dedup_fingerprint, normalize_volatile_text
-from .knowledge import find_similar_incident_matches
+from .knowledge import find_similar_incident_matches, tokenize
 from .knowledge_store import NEAR_DUPLICATE_MIN_SCORE, analysis_incidents, find_near_duplicates
 from .llm import DiagnosisProvider, diagnose_failure
 from .log_parser import extract_failure_text, has_failure_signal
@@ -26,6 +27,14 @@ from .models import (
 from .performance import analyze_performance_failure
 
 _NO_EVIDENCE = "No recognized failure evidence in CI log."
+# The analyzer's minimum: a claim must share at least two distinctive terms with the log.
+_MIN_GROUNDING_TERMS = 2
+# Suggestions that would weaken a safeguard rather than fix a cause; humans must decide these.
+_SAFEGUARD_WEAKENING = re.compile(
+    r"\b(?:disabl\w*|bypass\w*|skip\w*|ignor\w*|suppress\w*|unsigned|--force|force[- ]push\w*|"
+    r"--no-verify|threshold\w*|baseline\w*)\b",
+    re.IGNORECASE,
+)
 
 
 def analyze_log(
@@ -80,6 +89,57 @@ def _sanitized_lines(failure_text: str) -> list[str]:
         seen.add(key)
         lines.append(line)
     return lines
+
+
+def _terms(text: str) -> set[str]:
+    """Distinctive terms without sentence punctuation (``tokenize`` keeps dots for versions and paths)."""
+
+    terms = {token.strip("./-") for token in tokenize(text)}
+    # A plain plural matches its singular ("rules" and "rule"); applied to both sides of every comparison.
+    return {
+        term[:-1] if len(term) > 3 and term.endswith("s") and not term.endswith("ss") else term
+        for term in terms
+        if term
+    }
+
+
+def _grounded(text: str, log_tokens: set[str]) -> bool:
+    return len(_terms(text) & log_tokens) >= _MIN_GROUNDING_TERMS
+
+
+def _log_quote(quote: str, lines: list[str], log_tokens: set[str]) -> bool:
+    """A model citation counts as log evidence only if it is part of one actual log line."""
+
+    text = quote.strip()
+    return bool(text) and any(text in line for line in lines) and _grounded(text, log_tokens)
+
+
+def _supported_suggestions(
+    diagnosis: LLMDiagnosis, supporting_terms: set[str]
+) -> tuple[str | None, list[str], list[str]]:
+    """Keep the suggested fix and validation steps only if they keep safeguards and relate to the evidence.
+
+    ``supporting_terms`` are the log's terms plus those of the historical incidents
+    the deterministic analyzer matched, so a fix may use the history's wording.
+    """
+
+    def problem(text: str) -> str | None:
+        if _SAFEGUARD_WEAKENING.search(text):
+            return "would weaken a safeguard"
+        return None if _grounded(text, supporting_terms) else "is unrelated to the log or matched history"
+
+    notes: list[str] = []
+    fix = (diagnosis.suggested_fix or "").strip() or None
+    if fix is not None and (reason := problem(fix)):
+        notes.append(f"Suggested fix omitted from the draft because it {reason}: {fix}")
+        fix = None
+    steps: list[str] = []
+    for step in diagnosis.validation_steps:
+        if reason := problem(step):
+            notes.append(f"Validation step omitted from the draft because it {reason}: {step}")
+        else:
+            steps.append(step)
+    return fix, steps, notes
 
 
 def _known_solution(
@@ -177,24 +237,48 @@ def investigate_log(
         )
 
     notes: list[str] = []
-    cited = [line for line in diagnosis.evidence if line.strip() and line.strip() in failure.failure_text]
+    log_tokens = _terms(failure.failure_text)
+    cited = [line.strip() for line in diagnosis.evidence if _log_quote(line, lines, log_tokens)]
     if len(cited) < len(diagnosis.evidence):
         notes.append(f"Ignored {len(diagnosis.evidence) - len(cited)} LLM-cited line(s) not found in the log.")
     diagnosis = diagnosis.model_copy(update={"evidence": cited})
     # Deterministic analysis stays authoritative; the LLM category is used only when it found none.
-    category = analysis.category if analysis.category != "unknown" else diagnosis.category
-    if analysis.category != "unknown" and diagnosis.category != analysis.category:
-        notes.append(f"LLM suggested {diagnosis.category}; keeping deterministic category {analysis.category}.")
-    if category == "unknown" or diagnosis.confidence == 0.0:
-        notes += ["The LLM could not identify a cause with any confidence; no draft was created.", unknowns]
+    category: CauseCategory
+    if analysis.category != "unknown":
+        category = analysis.category
+        category_source = "historical" if analysis.matched_incident_ids else "deterministic"
+        if diagnosis.category != analysis.category:
+            notes.append(f"LLM suggested {diagnosis.category}; keeping deterministic category {analysis.category}.")
+    else:
+        category, category_source = diagnosis.category, "llm"
+    # Each check is independent; there is no confidence cut-off beyond the model's own zero.
+    rejections = [
+        reason
+        for failed, reason in (
+            (category == "unknown", "no category was identified"),
+            (diagnosis.confidence == 0.0, "the LLM reported zero confidence"),
+            (not _grounded(diagnosis.root_cause, log_tokens), "the root cause is not grounded in the log"),
+            (not cited, "the LLM quoted no line that appears in the log"),
+        )
+        if failed
+    ]
+    if rejections:
+        notes += [f"No draft created: {'; '.join(rejections)}.", unknowns]
         return Investigation(outcome="deterministic_only", llm_called=True, diagnosis=diagnosis, notes=notes, **base)
+    history_terms = {
+        term
+        for incident in references
+        for term in _terms(" ".join([incident.title, incident.summary, *incident.keywords]))
+    }
+    fix, steps, suggestion_notes = _supported_suggestions(diagnosis, log_tokens | history_terms)
+    notes += suggestion_notes
 
     draft: dict[str, Any] = {
         "id": f"draft-{fingerprint[:12]}",
         "title": _clip(evidence[0], 120),
         "category": category,
         "summary": _clip(" ".join(evidence)),
-        "recommendation": diagnosis.suggested_fix or analysis.recommendation,
+        "recommendation": fix or analysis.recommendation,
         "synthetic": synthetic,
         "evidence": evidence,
         "root_cause": diagnosis.root_cause,
@@ -202,13 +286,15 @@ def investigate_log(
             "llm_model": provider.model,
             "source_log": source_name,
             "confidence": diagnosis.confidence,
-            "validation_steps": diagnosis.validation_steps,
+            "validation_steps": steps,
             "missing_evidence": diagnosis.missing_evidence,
             "related_incident_ids": analysis.matched_incident_ids,
+            "category_source": category_source,
+            "cited_log_lines": cited,
         },
     }
-    if diagnosis.suggested_fix:
-        draft["fix"] = {"description": diagnosis.suggested_fix, "validation_status": "unvalidated"}
+    if fix:
+        draft["fix"] = {"description": fix, "validation_status": "unvalidated"}
     return Investigation(
         outcome="new_diagnosis", llm_called=True, diagnosis=diagnosis, draft=draft, notes=notes, **base
     )
