@@ -1,4 +1,6 @@
-from circa.log_parser import extract_failure_text
+from pathlib import Path
+
+from circa.log_parser import extract_failure_text, failure_evidence_lines
 
 
 def test_extracts_clear_failure_from_large_log() -> None:
@@ -45,3 +47,29 @@ def test_extracts_named_exception_lines() -> None:
 
 def test_extracts_explicit_performance_threshold_violation() -> None:
     assert "PERFORMANCE THRESHOLD VIOLATION" in extract_failure_text("PERFORMANCE THRESHOLD VIOLATION\nlatency high")
+
+
+PROTECTED_TAG_LOG = Path(__file__).parent / "fixtures" / "real_incidents" / "tt-metal-protected-tag.log"
+
+
+def test_failure_evidence_keeps_the_continuation_of_a_multi_line_error() -> None:
+    # Sanitized public tt-metal release failure: the second line has no failure keyword.
+    assert failure_evidence_lines(PROTECTED_TAG_LOG.read_text()) == [
+        "HttpError: Repository rule violations found",
+        "Cannot update this protected ref.",
+    ]
+
+
+def test_failure_evidence_does_not_absorb_unrelated_lines() -> None:
+    lines = (
+        "Cannot reach the cache; continuing without it",  # no failure signal, not after one
+        "2026-10-22T10:00:00Z [ERROR] upload failed",
+        "2026-10-22T10:00:01Z [INFO] next record, not a continuation",
+        "ERROR: second failure",
+        "",
+        "detached text after a blank line",
+        "ERROR: second failure",
+    )
+    raw_log = "\n".join(lines)
+
+    assert failure_evidence_lines(raw_log) == ["2026-10-22T10:00:00Z [ERROR] upload failed", "ERROR: second failure"]

@@ -6,6 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 from circa.cli import app
+from circa.knowledge_store import load_knowledge
 from circa.models import HistoricalIncident, LLMDiagnosis
 from circa.pipeline import analyze_log, investigate_log
 
@@ -192,7 +193,18 @@ def test_draft_review_show_edit_reject_and_list(tmp_path: Path) -> None:
 
 def test_approval_never_validates_a_fix_without_reviewer_evidence(tmp_path: Path) -> None:
     path, draft_id = _drafted(tmp_path)
-    verify = ["knowledge", "verify", draft_id, "--knowledge", str(path), "--reviewer", "r", "--yes"]
+    verify = [
+        "knowledge",
+        "verify",
+        draft_id,
+        "--knowledge",
+        str(path),
+        "--reviewer",
+        "r",
+        "--yes",
+        "--category",
+        "infrastructure",
+    ]
 
     refused = runner.invoke(app, verify)
     assert refused.exit_code == 1
@@ -210,7 +222,18 @@ def test_approval_never_validates_a_fix_without_reviewer_evidence(tmp_path: Path
 
 def test_synthetic_approval_keeps_the_fix_unvalidated_and_is_reused(tmp_path: Path) -> None:
     path, draft_id = _drafted(tmp_path, "--synthetic")
-    verify = ["knowledge", "verify", draft_id, "--knowledge", str(path), "--reviewer", "r", "--yes"]
+    verify = [
+        "knowledge",
+        "verify",
+        draft_id,
+        "--knowledge",
+        str(path),
+        "--reviewer",
+        "r",
+        "--yes",
+        "--category",
+        "infrastructure",
+    ]
     assert runner.invoke(app, verify).exit_code == 0
     provider = FakeProvider(_diagnosis())
 
@@ -469,7 +492,17 @@ def test_lifecycle_from_unknown_failure_to_reused_verified_knowledge(tmp_path: P
     assert draft["id"] not in before["matched_incident_ids"]
 
     # 4. Explicit approval with the reviewer's own validation evidence.
-    approve = ["knowledge", "verify", draft["id"], *knowledge, "--reviewer", "r", "--yes"]
+    approve = [
+        "knowledge",
+        "verify",
+        draft["id"],
+        *knowledge,
+        "--reviewer",
+        "r",
+        "--yes",
+        "--category",
+        "infrastructure",
+    ]
     evidence = ["--validation-method", "manual_verification", "--validation-evidence", "Re-signed and packaged."]
     assert runner.invoke(app, [*approve, *evidence]).exit_code == 0
 
@@ -545,3 +578,110 @@ def test_json_output_stays_valid_when_a_draft_is_saved(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert json.loads(result.stdout)["outcome"] == "new_diagnosis"
     assert "Draft saved: draft-" in result.stderr
+
+
+TEAM_FILE = Path(__file__).parents[1] / "team" / "incidents.json"
+
+
+def _verify(path: Path, incident_id: str, *extra: str):
+    command = ["knowledge", "verify", incident_id, "--knowledge", str(path), "--reviewer", "r", "--yes", *extra]
+    return runner.invoke(app, command)
+
+
+def test_llm_category_must_be_confirmed_or_corrected_at_approval(tmp_path: Path) -> None:
+    path, draft_id = _drafted(tmp_path, "--synthetic")
+    assert json.loads(path.read_text())[0]["draft_origin"]["category_source"] == "llm"
+
+    unconfirmed = _verify(path, draft_id)
+    assert unconfirmed.exit_code == 1 and "suggested by the LLM" in unconfirmed.output
+    assert json.loads(path.read_text())[0]["status"] == "pending_review"
+
+    corrected = _verify(path, draft_id, "--category", "software")
+    [record] = json.loads(path.read_text())
+    assert corrected.exit_code == 0
+    assert (record["status"], record["category"]) == ("verified", "software")
+    assert record["draft_origin"]["category_source"] == "reviewer"
+    assert record["fix"]["validation_status"] == "unvalidated"  # confirming a category validates nothing
+
+
+def test_invalid_reviewer_category_is_rejected(tmp_path: Path) -> None:
+    path, draft_id = _drafted(tmp_path, "--synthetic")
+
+    result = _verify(path, draft_id, "--category", "cosmic-rays")
+
+    assert result.exit_code == 1 and "category" in result.output
+    assert json.loads(path.read_text())[0]["status"] == "pending_review"
+
+
+def test_editing_the_category_records_reviewer_provenance_and_cannot_forge_it(tmp_path: Path) -> None:
+    path, draft_id = _drafted(tmp_path, "--synthetic")
+    show = runner.invoke(app, ["knowledge", "show", draft_id, "--knowledge", str(path), "--json"])
+    draft = json.loads(show.output)
+    edited = tmp_path / "edited.json"
+
+    # Claiming a deterministic source without changing anything is ignored.
+    draft["draft_origin"]["category_source"] = "deterministic"
+    edited.write_text(json.dumps(draft))
+    assert runner.invoke(app, ["knowledge", "update", str(edited), "--knowledge", str(path), "--yes"]).exit_code == 0
+    assert json.loads(path.read_text())[0]["draft_origin"]["category_source"] == "llm"
+
+    # Changing the category is a reviewer decision.
+    edited.write_text(json.dumps(draft | {"category": "software"}))
+    assert runner.invoke(app, ["knowledge", "update", str(edited), "--knowledge", str(path), "--yes"]).exit_code == 0
+    assert json.loads(path.read_text())[0]["draft_origin"]["category_source"] == "reviewer"
+    assert _verify(path, draft_id).exit_code == 0
+
+
+def test_deterministic_categories_and_legacy_records_need_no_category_confirmation(tmp_path: Path) -> None:
+    draft = _investigate(_disk_diagnosis(), DISK_LOG).draft
+    assert draft is not None and draft["draft_origin"]["category_source"] == "historical"
+    # Records without draft_origin (written before provenance existed) still verify as before.
+    assert runner.invoke(app, ["knowledge", "validate", str(_verified_example(tmp_path))]).exit_code == 0
+
+
+def test_existing_team_knowledge_still_loads(tmp_path: Path) -> None:
+    copy = tmp_path / "team.json"
+    copy.write_bytes(TEAM_FILE.read_bytes())  # never touch the real file
+
+    result = runner.invoke(app, ["knowledge", "validate", str(copy)])
+
+    assert result.exit_code == 0 and "1 pending_review" in result.output
+    assert copy.read_bytes() == TEAM_FILE.read_bytes()
+
+
+def test_protected_tag_failure_matches_its_human_record_exactly(tmp_path: Path) -> None:
+    copy = tmp_path / "team.json"
+    copy.write_bytes(TEAM_FILE.read_bytes())
+    provider = FakeProvider(_diagnosis())
+
+    investigation = investigate_log(
+        TT_METAL_LOG.read_text(), load_knowledge(copy).incidents, provider, source_name=TT_METAL_LOG.name
+    )
+
+    assert investigation.evidence == [
+        "HttpError: Repository rule violations found",
+        "Cannot update this protected ref.",
+    ]
+    assert investigation.outcome == "existing_record"
+    assert investigation.match_reason == "same failure fingerprint"
+    assert investigation.matched_incident.id == "real-tt-metal-protected-tag-update-001"
+    assert provider.prompts == []
+
+
+def test_performance_failure_is_not_drafted_as_an_unsupported_assertion_failure() -> None:
+    log = EXAMPLES / "demo_performance_threshold.log"
+    # Observed qwen2.5:1.5b output for this log: an assertion failure that the log never mentions.
+    diagnosis = _diagnosis(
+        category="software",
+        confidence=0.95,
+        root_cause="Assertion failure in software unit test",
+        evidence=["2026-10-22T12:40:11Z [ERROR] PERFORMANCE THRESHOLD VIOLATION"],
+        suggested_fix="Re-run the unit test to verify the regression and address the assertion failure.",
+    )
+
+    investigation = _investigate(diagnosis, log)
+
+    assert investigation.draft is None
+    assert any("root cause is not grounded" in note for note in investigation.notes)
+    assert investigation.analysis.performance_assessment is not None
+    assert investigation.analysis.performance_assessment.failure_type == "performance_threshold_violation"

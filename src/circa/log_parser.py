@@ -9,6 +9,8 @@ _FAILURE_SIGNAL = re.compile(
     r"connection refused|no space left|out of memory|oom|segmentation fault)\b",
     re.IGNORECASE,
 )
+# A line that starts its own log record (timestamp, clock time, bracketed tag, or LEVEL:).
+_RECORD_START = re.compile(r"^(?:\d{4}-\d{2}-\d{2}|\d{2}:\d{2}:\d{2}|\[|[A-Z]{3,}:)")
 _REPEATED_PREFIX = re.compile(r"^(?:\[[^\]]+\]\s*)?(?:info|debug|notice)\b", re.IGNORECASE)
 
 
@@ -16,6 +18,26 @@ def has_failure_signal(line: str) -> bool:
     """Return whether a log line contains a recognized failure signal."""
 
     return _FAILURE_SIGNAL.search(line) is not None
+
+
+def failure_evidence_lines(raw_log: str) -> list[str]:
+    """Return exact log lines that state a failure, in order and without duplicates.
+
+    A failure-signal line is kept with its immediate continuation: the next
+    adjacent line when it does not start a log record of its own, such as the
+    second line of a multi-line error message. Nothing is inferred or reworded.
+    """
+
+    raw_lines = raw_log.splitlines()
+    selected: list[str] = []
+    for index, line in enumerate(raw_lines):
+        if not has_failure_signal(line):
+            continue
+        selected.append(line.strip())
+        following = raw_lines[index + 1].strip() if index + 1 < len(raw_lines) else ""
+        if following and not has_failure_signal(following) and not _RECORD_START.match(following):
+            selected.append(following)
+    return list(dict.fromkeys(selected))
 
 
 def extract_failure_text(raw_log: str, context_before: int = 1, context_after: int = 2) -> str:

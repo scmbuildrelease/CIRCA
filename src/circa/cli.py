@@ -489,6 +489,14 @@ def knowledge_verify(
     validation_evidence: Annotated[
         str | None, typer.Option("--validation-evidence", help="What actually showed the fix works.")
     ] = None,
+    category: Annotated[
+        str | None,
+        typer.Option(
+            "--category",
+            help="Confirm or correct the category (hardware, software, network, infrastructure, unknown); "
+            "required when the LLM chose it.",
+        ),
+    ] = None,
     yes: YesOption = False,
 ) -> None:
     """Approve a pending_review incident. Its fix is validated only with your own validation evidence."""
@@ -498,7 +506,9 @@ def knowledge_verify(
     validation = (validation_method, validation_evidence) if validation_method and validation_evidence else None
     try:
         current = load_knowledge(knowledge)
-        incidents, incident = verify_incident(current, incident_id, reviewer=reviewer, validation=validation)
+        incidents, incident = verify_incident(
+            current, incident_id, reviewer=reviewer, validation=validation, category=category
+        )
     except KnowledgeError as error:
         raise _fail(error) from error
     _confirm_and_save(current, incidents, incident, "Verify", yes)

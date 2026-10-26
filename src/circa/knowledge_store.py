@@ -195,6 +195,12 @@ def update_incident(
             "Add a new incident and supersede this one instead."
         )
     incident = _incident_from_draft(draft, created=existing.created, today=today or _today())
+    if existing.draft_origin is not None and incident.draft_origin is not None:
+        # The category source is recorded by CIRCA, never taken from the edited JSON.
+        source = "reviewer" if incident.category != existing.category else existing.draft_origin.category_source
+        incident = incident.model_copy(
+            update={"draft_origin": incident.draft_origin.model_copy(update={"category_source": source})}
+        )
     others = [other for other in knowledge.incidents if other.id != existing.id]
     warnings = _check_duplicates(incident, others, allow_similar)
     return _replace(knowledge, incident), incident, warnings
@@ -206,12 +212,14 @@ def verify_incident(
     *,
     reviewer: str,
     validation: tuple[str, str] | None = None,
+    category: str | None = None,
     today: date | None = None,
 ) -> tuple[list[HistoricalIncident], HistoricalIncident]:
     """Move a ``pending_review`` incident to ``verified`` if it meets the schema rules.
 
     ``validation`` is the reviewer's own ``(method, evidence)`` for the existing
-    fix. Approval alone never marks a fix validated.
+    fix. Approval alone never marks a fix validated. ``category`` confirms or
+    corrects the category; it is required when the LLM chose it.
     """
 
     existing = _find(knowledge, incident_id)
@@ -219,7 +227,17 @@ def verify_incident(
         raise KnowledgeError(f"incident '{incident_id}' is {existing.status}; only pending_review can be verified")
     if not reviewer.strip():
         raise KnowledgeError("a reviewer name is required")
+    origin = existing.draft_origin
+    if category is None and origin is not None and origin.category_source == "llm":
+        raise KnowledgeError(
+            f"the category '{existing.category}' of '{incident_id}' was suggested by the LLM; "
+            "confirm or correct it with --category"
+        )
     record = existing.model_dump() | {"status": "verified", "reviewed_by": reviewer, "updated": today or _today()}
+    if category is not None:
+        record["category"] = category
+        if origin is not None:
+            record["draft_origin"] = origin.model_dump() | {"category_source": "reviewer"}
     try:
         if validation is not None:
             if existing.fix is None:

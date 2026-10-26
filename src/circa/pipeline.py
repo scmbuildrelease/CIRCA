@@ -13,7 +13,7 @@ from .fingerprint import dedup_fingerprint, normalize_volatile_text
 from .knowledge import find_similar_incident_matches, tokenize
 from .knowledge_store import NEAR_DUPLICATE_MIN_SCORE, analysis_incidents, find_near_duplicates
 from .llm import DiagnosisProvider, diagnose_failure
-from .log_parser import extract_failure_text, has_failure_signal
+from .log_parser import extract_failure_text, failure_evidence_lines
 from .models import (
     MAX_EVIDENCE_CHARS,
     MAX_EVIDENCE_LINES,
@@ -195,7 +195,8 @@ def investigate_log(
     incidents = analysis_incidents(team_incidents)
     analysis = analyze_log(raw_log, incidents=incidents)
     lines = _sanitized_lines(extract_failure_text(raw_log))
-    evidence = [_clip(line) for line in lines if has_failure_signal(line)][:MAX_EVIDENCE_LINES]
+    evidence = [_clip(line) for line in _sanitized_lines("\n".join(failure_evidence_lines(raw_log)))]
+    evidence = evidence[:MAX_EVIDENCE_LINES]
     if not evidence:
         return Investigation(
             outcome="no_failure_evidence",

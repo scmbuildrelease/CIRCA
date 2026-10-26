@@ -79,8 +79,9 @@ class DraftOrigin(BaseModel):
     missing_evidence: list[str] = Field(default_factory=list)
     related_incident_ids: list[str] = Field(default_factory=list)
     # Where the draft's category came from: the analyzer alone, the analyzer via
-    # historical matches, or the LLM because deterministic analysis found none.
-    category_source: Literal["deterministic", "historical", "llm"] | None = None
+    # historical matches, the LLM because deterministic analysis found none, or a
+    # reviewer who confirmed or corrected it.
+    category_source: Literal["deterministic", "historical", "llm", "reviewer"] | None = None
     cited_log_lines: list[str] = Field(default_factory=list)
 
 

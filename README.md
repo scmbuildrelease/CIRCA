@@ -237,6 +237,7 @@ circa knowledge show draft-06a3cf72d814 --knowledge demo-team.json --json > draf
 # ...edit draft.json, then:
 circa knowledge update draft.json --knowledge demo-team.json --yes
 circa knowledge verify draft-06a3cf72d814 --reviewer "Your Name" --knowledge demo-team.json --yes \
+  --category infrastructure \
   --validation-method repeated_runs_passed \
   --validation-evidence "Synthetic example: 3 consecutive packaging runs passed after renewal"
 # or: circa knowledge reject draft-06a3cf72d814 --reviewer "Your Name" --knowledge demo-team.json
@@ -258,6 +259,20 @@ unvalidated fix: later investigations show it as an existing record but never
 as a known verified solution. A historical fix was validated for the recorded
 incident, not for your environment; confirm it applies.
 
+**Category review.** `draft_origin.category_source` records where a draft's
+category came from: `deterministic` (analyzer), `historical` (analyzer via
+matched incidents), `llm` (the analyzer found none), or `reviewer`. A draft
+whose category came from the LLM cannot be approved until the reviewer confirms
+or corrects it with `--category`, which records `reviewer`. Changing the
+category through `show --json` and `update` records `reviewer` too. CIRCA sets
+this field itself and ignores edits to it. Records without `draft_origin` are
+unaffected.
+
+Draft evidence holds the exact log lines with a failure signal, plus a line
+that directly continues one (the next line, when it does not start its own
+timestamped, bracketed, or `LEVEL:` record), such as the second line of a
+multi-line error.
+
 ### Piloting on real logs
 
 Evaluate diagnosis quality on sanitized real logs with the existing commands
@@ -272,13 +287,22 @@ circa knowledge list --pending --knowledge pilot/knowledge.json
 circa knowledge show DRAFT-ID --knowledge pilot/knowledge.json
 ```
 
-Record, per log: the confirmed root cause (if any), `analysis.category`,
-`outcome`, `llm_called`, whether a draft was created, `notes` (ignored quotes
-and omitted suggestions), and your judgment of the hypothesis and fix. Do not
-run `knowledge verify` in a pilot unless a reviewer actually validated the fix,
-and never run a suggested fix from the output. To check reuse, approve in the
-pilot copy with real validation evidence, then rerun `investigate-log` on a
-later log of the same failure.
+Record one row per log, keeping automated fields separate from human
+judgment:
+
+| Field                                                    | Source                                                                                                                                                                   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| failure type                                             | network, unit-test assertion, disk space, certificate or signing, hardware or device initialization, build or release infrastructure                                     |
+| confirmed root cause                                     | independently confirmed (postmortem, fix commit, or owner) with a reference; otherwise `inconclusive`. An `Unconfirmed hypothesis` in team knowledge is not ground truth |
+| `analysis.category`, `outcome`, `llm_called`, `evidence` | `--json` output (automated)                                                                                                                                              |
+| draft created, `category_source`, `notes`                | `--json` output (automated): ignored quotes and omitted suggestions                                                                                                      |
+| hypothesis, category, and fix correct?                   | reviewer judgment, only for cases with a confirmed root cause                                                                                                            |
+
+Do not run `knowledge verify` in a pilot unless a reviewer actually validated
+the fix, and never run a suggested fix from the output. To check reuse,
+approve in the pilot copy with real validation evidence, then rerun
+`investigate-log` on a later log of the same failure. Do not report accuracy
+from a handful of logs.
 
 ## Team incident knowledge
 
