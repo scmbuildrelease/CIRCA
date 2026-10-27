@@ -28,6 +28,44 @@ _DRIFT_SIGNAL = re.compile(
 )
 _BASELINE_SIGNAL = re.compile(r"\b(?:baseline|reference[_\s-]run)\b", re.IGNORECASE)
 _TEST_CONFIGURATION_SIGNAL = re.compile(r"\b(?:test[_\s-]config(?:uration)?|configuration)\b", re.IGNORECASE)
+# Source code shown by tools is not test output. `gh run view --log` prefixes
+# lines with "job<TAB>step<TAB>" and a timestamp; only that prefix is removed, so
+# a diff context line keeps its leading space.
+_LOG_PREFIX = re.compile(r"^(?:[^\t]*\t[^\t]*\t)?\ufeff?(?:\d{4}-\d{2}-\d{2}T[\d:.]+Z ?)?")
+_DIFF_HEADER = re.compile(r"^(?:--- \S|\+\+\+ \S|@@ .* @@)")
+_DIFF_BODY = re.compile(r"^(?:[-+ ]|$)")
+_SNIPPET_START = re.compile(r"^\s*-->\s")
+_SNIPPET_BODY = re.compile(r"^(?:\s*$|\s*(?:\d+\s*)?[|+-](?:\s|$)|(?:help|note):)")
+_BREACHED = {
+    "<=": lambda actual, expected: actual > expected,
+    "<": lambda actual, expected: actual >= expected,
+    ">=": lambda actual, expected: actual < expected,
+    ">": lambda actual, expected: actual <= expected,
+    "==": lambda actual, expected: actual != expected,
+}
+
+
+def _output_lines(raw_log: str) -> list[str]:
+    """Return log lines that are tool or test output, without diffs and lint code snippets."""
+
+    lines: list[str] = []
+    in_diff = in_snippet = False
+    for raw_line in raw_log.splitlines():
+        text = _LOG_PREFIX.sub("", raw_line, count=1)
+        if in_snippet and _SNIPPET_BODY.match(text):
+            continue
+        in_snippet = bool(_SNIPPET_START.match(text))
+        if in_snippet:
+            continue
+        if _DIFF_HEADER.match(text):
+            in_diff = True
+            continue
+        if in_diff and _DIFF_BODY.match(text):
+            continue
+        in_diff = False
+        if raw_line.strip():
+            lines.append(raw_line.strip())
+    return lines
 
 
 def analyze_performance_failure(raw_log: str) -> PerformanceAssessment | None:
@@ -38,12 +76,13 @@ def analyze_performance_failure(raw_log: str) -> PerformanceAssessment | None:
     changes a performance baseline.
     """
 
-    lines = [line.strip() for line in raw_log.splitlines() if line.strip()]
+    lines = _output_lines(raw_log)
     has_violation = any(_EXPLICIT_VIOLATION.search(line) or _METRIC_VIOLATION.search(line) for line in lines)
     if not has_violation:
         return None
 
     measurements: list[PerformanceMeasurement] = []
+    has_breach = False
     test_details: list[str] = []
     evidence: list[str] = []
     has_drift_signal = False
@@ -65,6 +104,16 @@ def analyze_performance_failure(raw_log: str) -> PerformanceAssessment | None:
                 )
             )
             evidence.append(line)
+            # Only a value that crosses its stated threshold (in the same unit) shows a regression.
+            same_unit = not (measurement.group("actual_unit") and measurement.group("expected_unit")) or (
+                measurement.group("actual_unit").lower() == measurement.group("expected_unit").lower()
+            )
+            has_breach = has_breach or (
+                same_unit
+                and _BREACHED[measurement.group("operator")](
+                    float(measurement.group("actual")), float(measurement.group("expected"))
+                )
+            )
         detail = _TEST_DETAIL.search(line)
         if detail:
             test_details.append(detail.group("value"))
@@ -77,6 +126,8 @@ def analyze_performance_failure(raw_log: str) -> PerformanceAssessment | None:
     missing_evidence: list[str] = []
     if not measurements:
         missing_evidence.append("No explicit metric value and expected threshold were found.")
+    elif not has_breach:
+        missing_evidence.append("No measured value was found beyond its expected threshold.")
     if not test_details:
         missing_evidence.append("No explicit test or benchmark identifier was found.")
     if not has_drift_signal:
@@ -94,7 +145,7 @@ def analyze_performance_failure(raw_log: str) -> PerformanceAssessment | None:
             "configuration. Consider performance-threshold recalibration only after human validation and approval; "
             "do not change thresholds or baselines automatically."
         )
-    elif measurements:
+    elif has_breach:
         candidate_cause = "possible_genuine_performance_regression"
         recommended_action = None
         recommendation = (
