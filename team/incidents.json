@@ -1,5 +1,56 @@
 [
   {
+    "id": "real-circa-ci-quality-gate-baseline-001",
+    "title": "New CI quality gate failed on pre-existing formatting, typing, and Bandit findings",
+    "category": "software",
+    "summary": "The first run of the CI quality gate failed four jobs: Prettier found 3 unformatted files, Ruff format found 12 files to reformat, mypy found 9 type errors, and Bandit reported B310 for urlopen without a URL scheme restriction.",
+    "keywords": [
+      "quality gate",
+      "Prettier",
+      "Code style issues found",
+      "ruff format",
+      "would be reformatted",
+      "mypy",
+      "Bandit",
+      "B310",
+      "urlopen"
+    ],
+    "environment": {
+      "ci": "GitHub Actions",
+      "repository": "scmbuildrelease/CIRCA",
+      "workflow": "CI",
+      "run": "39988949831",
+      "commit": "43c1910"
+    },
+    "recommendation": "Bring the existing code into compliance in the same change that enables a new check: format with Prettier and Ruff, fix the reported mypy errors, and restrict urlopen to http(s) URLs before suppressing B310.",
+    "synthetic": false,
+    "status": "verified",
+    "fingerprints": [
+      "a57b5bd6d94e7367897f0b9f6d73e5203b00d6e7a12f380a8aa221f0827614d5"
+    ],
+    "evidence": [
+      "Format (Prettier)\tCheck Markdown, YAML, and JSON formatting\t2026-10-23T16:42:11.1942883Z [warn] Code style issues found in 3 files. Run Prettier with --write to fix.",
+      "Lint (Ruff)\tRuff format check\t2026-10-23T16:42:10.9226749Z 12 files would be reformatted, 22 files already formatted",
+      "Security (Bandit)\tRun Bandit\t2026-10-23T16:42:13.8758687Z >> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.",
+      "Type check (mypy)\tRun mypy\t2026-10-23T16:42:24.2208760Z Found 9 errors in 6 files (checked 17 source files)"
+    ],
+    "root_cause": "Commit 43c1910 added Prettier, Ruff format, mypy, and Bandit gates without bringing the existing code into compliance: 3 files were not Prettier-formatted, 12 files were not Ruff-formatted, 6 files had 9 mypy errors, and 3 urlopen calls accepted any URL scheme (Bandit B310).",
+    "fix": {
+      "description": "Commit 98e39ea formatted the files with Prettier 3.9.9 and Ruff 0.16.10, fixed the 9 mypy errors, and restricted the Ollama URLs to http(s) before the urlopen calls (with a justified nosec B310).",
+      "validation_status": "validated",
+      "validation_method": "manual_verification",
+      "validation_evidence": "Manually checked GitHub Actions run 39991021644 after fix commit 98e39ea. Prettier, Ruff, Bandit, and mypy all passed. Compared with failing run 39988949831.",
+      "references": [
+        "https://github.com/scmbuildrelease/CIRCA/actions/runs/39988949831",
+        "https://github.com/scmbuildrelease/CIRCA/commit/98e39ea3cd7a721d44593effb5e6152c58241a47",
+        "https://github.com/scmbuildrelease/CIRCA/actions/runs/39991021644"
+      ]
+    },
+    "reviewed_by": "Iris Wang",
+    "created": "2026-10-26",
+    "updated": "2026-10-26"
+  },
+  {
     "id": "real-tt-metal-protected-tag-update-001",
     "title": "GitHub Actions release failed updating a protected Git tag",
     "category": "infrastructure",

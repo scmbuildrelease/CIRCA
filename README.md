@@ -181,12 +181,17 @@ category or confidence. The example log is synthetic.
 1. The existing parser extracts failure lines; deterministic analysis runs as
    in `analyze-log`.
 2. Verified historical incidents are checked first. If one has a validated fix
-   and matches strongly (same dedup fingerprint, or a keyword score of at least
-   4 that agrees with the deterministic category), its root cause, fix, and
-   validation evidence are returned and the LLM is **not** called.
-3. If the failure is already recorded in the team file (same dedup
-   fingerprint, or a near duplicate), that record is shown; no LLM call and no
-   new draft.
+   and matches strongly, its root cause, fix, and validation evidence are
+   returned and the LLM is **not** called. A strong match is either the same
+   dedup fingerprint, or a keyword score of at least 4 that agrees with the
+   deterministic category **and** whose recorded evidence lines all appear in
+   this log after normalizing timestamps, IDs, and runner names. Keyword
+   similarity alone is never presented as a known solution.
+3. If the failure is already recorded in the team file, that record is shown,
+   with no LLM call and no new draft. "Already recorded" means the same dedup
+   fingerprint as any record, or a near duplicate of a `pending_review` or
+   `rejected` draft. A verified record that is only similar does not stop
+   diagnosis.
 4. Otherwise the optional local Ollama model is asked **once** for a structured
    diagnosis hypothesis. The prompt holds only extracted failure lines (at most
    3,000 characters, credential-looking lines removed), the deterministic

@@ -73,3 +73,16 @@ def test_failure_evidence_does_not_absorb_unrelated_lines() -> None:
     raw_log = "\n".join(lines)
 
     assert failure_evidence_lines(raw_log) == ["2026-10-22T10:00:00Z [ERROR] upload failed", "ERROR: second failure"]
+
+
+def test_github_actions_job_and_step_prefixes_do_not_create_continuations() -> None:
+    # Excerpt of `gh run view 39988949831 --log-failed` (scmbuildrelease/CIRCA), ANSI colors removed.
+    lines = (
+        (
+            "Format (Prettier)\tCheck Markdown, YAML, and JSON formatting\t2026-10-23T16:42:11.2260394Z "
+            "##[error]Process completed with exit code 1."
+        ),
+        "Lint (Ruff)\tRuff format check\t\ufeff2026-10-23T16:42:10.8934920Z ##[group]Run ruff format --check --diff .",
+    )
+
+    assert failure_evidence_lines("\n".join(lines)) == [lines[0]]

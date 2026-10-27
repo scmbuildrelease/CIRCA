@@ -685,3 +685,89 @@ def test_performance_failure_is_not_drafted_as_an_unsupported_assertion_failure(
     assert any("root cause is not grounded" in note for note in investigation.notes)
     assert investigation.analysis.performance_assessment is not None
     assert investigation.analysis.performance_assessment.failure_type == "performance_threshold_violation"
+
+
+# Verbatim lines from `gh run view 39988949831 --log-failed` (scmbuildrelease/CIRCA, ANSI colors removed).
+CI_GATE_EVIDENCE = [
+    (
+        "Format (Prettier)\tCheck Markdown, YAML, and JSON formatting\t2026-10-23T16:42:11.1942883Z [warn] Code style "
+        "issues found in 3 files. Run Prettier with --write to fix."
+    ),
+    (
+        "Lint (Ruff)\tRuff format check\t2026-10-23T16:42:10.9226749Z 12 files would be reformatted, 22 files already "
+        "formatted"
+    ),
+    (
+        "Security (Bandit)\tRun Bandit\t2026-10-23T16:42:13.8758687Z >> Issue: [B310:blacklist] Audit url open for "
+        "permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+    ),
+    "Type check (mypy)\tRun mypy\t2026-10-23T16:42:24.2208760Z Found 9 errors in 6 files (checked 17 source files)",
+]
+
+
+def _verified_ci_gate_incident(tmp_path: Path) -> Path:
+    draft = {
+        "id": "real-ci-gate-baseline-001",
+        "title": "New CI quality gate failed on pre-existing formatting, typing, and Bandit findings",
+        "category": "software",
+        "summary": "Prettier found 3 unformatted files, Ruff format 12 files, mypy 9 type errors, and Bandit B310.",
+        "keywords": ["quality gate", "Prettier", "ruff format", "would be reformatted", "mypy", "Bandit", "B310"],
+        "recommendation": "Bring existing code into compliance in the change that enables a new check.",
+        "synthetic": False,
+        "evidence": CI_GATE_EVIDENCE,
+        "root_cause": "The quality gate was enabled without bringing the existing code into compliance.",
+        "fix": {"description": "Formatted the files, fixed the mypy errors, and restricted urlopen to http(s)."},
+    }
+    draft_path, path = tmp_path / "draft.json", tmp_path / "team.json"
+    draft_path.write_text(json.dumps(draft))
+    assert runner.invoke(app, ["knowledge", "add", str(draft_path), "--knowledge", str(path), "--yes"]).exit_code == 0
+    evidence = [
+        "--validation-method",
+        "reproduced_then_fixed",
+        "--validation-evidence",
+        "Checks fail before, pass after.",
+    ]
+    assert _verify(path, "real-ci-gate-baseline-001", *evidence).exit_code == 0
+    return path
+
+
+def test_real_ci_gate_failure_reuses_its_verified_record_without_the_llm(tmp_path: Path) -> None:
+    path = _verified_ci_gate_incident(tmp_path)
+    before = path.read_bytes()
+    # A later run: other timestamps, plus unrelated noise around the same failures.
+    later = tmp_path / "later.log"
+    later.write_text(
+        "\n".join(
+            [
+                "Lint (Ruff)\tRuff lint\t2026-11-04T08:17:01.0000000Z All checks passed!",
+                *(line.replace("2026-10-23T16:42", "2026-11-04T08:17") for line in CI_GATE_EVIDENCE),
+                "Type check (mypy)\tRun mypy\t2026-11-04T08:17:24.3000000Z ##[error]Process completed with exit code 1.",
+            ]
+        )
+    )
+    provider = FakeProvider(_diagnosis())
+
+    result = _invoke(provider, str(later), "--knowledge", str(path), "--json")
+
+    report = json.loads(result.stdout)
+    assert report["outcome"] == "known_solution"
+    assert report["matched_incident"]["id"] == "real-ci-gate-baseline-001"
+    assert report["matched_incident"]["fix"]["validation_status"] == "validated"
+    assert provider.prompts == []
+    assert path.read_bytes() == before  # no duplicate draft
+
+
+def test_keyword_similarity_without_the_recorded_evidence_is_not_a_known_solution(tmp_path: Path) -> None:
+    path = _verified_ci_gate_incident(tmp_path)
+    # A different mypy failure shares job, step, and tool words but none of the recorded evidence.
+    other = tmp_path / "other.log"
+    other.write_text(
+        "Type check (mypy)\tRun mypy\t2026-11-05T10:00:00.0000000Z src/app.py:12: error: Missing return statement\n"
+        "Type check (mypy)\tRun mypy\t2026-11-05T10:00:00.1000000Z Found 1 error in 1 file (checked 18 source files)\n"
+    )
+    provider = FakeProvider(_diagnosis())
+
+    report = json.loads(_invoke(provider, str(other), "--knowledge", str(path), "--json").stdout)
+
+    assert report["outcome"] not in {"known_solution", "existing_record"}
+    assert len(provider.prompts) == 1  # diagnosed, not answered with an unrelated verified fix

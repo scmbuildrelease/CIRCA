@@ -143,9 +143,24 @@ def _supported_suggestions(
 
 
 def _known_solution(
-    failure: CIFailure, fingerprint: str, analysis: AnalysisResult, incidents: list[HistoricalIncident]
+    failure: CIFailure,
+    fingerprint: str,
+    analysis: AnalysisResult,
+    incidents: list[HistoricalIncident],
+    raw_log: str,
 ) -> tuple[HistoricalIncident, str] | None:
-    """Return a verified incident with a validated fix that strongly matches, if any."""
+    """Return a verified incident with a validated fix that strongly matches, if any.
+
+    A keyword match alone is similarity, not evidence: the incident's recorded
+    evidence lines must also appear in this log once volatile values are normalized.
+    """
+
+    normalized_log = [normalize_volatile_text(line) for line in raw_log.splitlines() if line.strip()]
+
+    def evidence_observed(incident: HistoricalIncident) -> bool:
+        return bool(incident.evidence) and all(
+            any(normalize_volatile_text(line) in log_line for log_line in normalized_log) for line in incident.evidence
+        )
 
     def has_validated_fix(incident: HistoricalIncident) -> bool:
         return (
@@ -162,8 +177,9 @@ def _known_solution(
             match.score >= NEAR_DUPLICATE_MIN_SCORE
             and match.incident.id in analysis.matched_incident_ids
             and has_validated_fix(match.incident)
+            and evidence_observed(match.incident)
         ):
-            return match.incident, f"keyword score {match.score:g}"
+            return match.incident, f"keyword score {match.score:g} and its recorded evidence"
     return None
 
 
@@ -174,7 +190,11 @@ def _existing_record(
         if fingerprint in incident.fingerprints:
             return incident, "same failure fingerprint"
     probe = CIFailure(failure_text=" ".join(evidence), category=None if category == "unknown" else category)
-    near = find_near_duplicates(probe, team_incidents)
+    # A near duplicate of a draft still awaiting review is the same open question. A
+    # verified or superseded incident whose evidence was not observed is only similar,
+    # so the failure is still diagnosed (and an add would report the similarity).
+    in_review = [incident for incident in team_incidents if incident.status in ("pending_review", "rejected")]
+    near = find_near_duplicates(probe, in_review)
     return (near[0].incident, f"near duplicate, keyword score {near[0].score:g}") if near else None
 
 
@@ -207,7 +227,7 @@ def investigate_log(
     fingerprint = dedup_fingerprint(evidence)
     failure = CIFailure(failure_text="\n".join(lines))
     base = {"analysis": analysis, "evidence": evidence, "dedup_fingerprint": fingerprint}
-    known = _known_solution(failure, fingerprint, analysis, incidents)
+    known = _known_solution(failure, fingerprint, analysis, incidents, raw_log)
     if known is not None:
         return Investigation(outcome="known_solution", matched_incident=known[0], match_reason=known[1], **base)
     existing = _existing_record(evidence, fingerprint, analysis.category, team_incidents)

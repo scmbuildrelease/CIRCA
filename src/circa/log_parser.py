@@ -20,6 +20,13 @@ def has_failure_signal(line: str) -> bool:
     return _FAILURE_SIGNAL.search(line) is not None
 
 
+def _starts_record(line: str) -> bool:
+    # `gh run view --log` prefixes every line with "job<TAB>step<TAB>", and a
+    # byte-order mark may precede the timestamp; check the record text itself.
+    text = line.split("\t", 2)[-1] if line.count("\t") >= 2 else line
+    return _RECORD_START.match(text.lstrip("\ufeff")) is not None
+
+
 def failure_evidence_lines(raw_log: str) -> list[str]:
     """Return exact log lines that state a failure, in order and without duplicates.
 
@@ -35,7 +42,7 @@ def failure_evidence_lines(raw_log: str) -> list[str]:
             continue
         selected.append(line.strip())
         following = raw_lines[index + 1].strip() if index + 1 < len(raw_lines) else ""
-        if following and not has_failure_signal(following) and not _RECORD_START.match(following):
+        if following and not has_failure_signal(following) and not _starts_record(following):
             selected.append(following)
     return list(dict.fromkeys(selected))
 
