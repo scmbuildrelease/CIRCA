@@ -6,12 +6,15 @@ import re
 
 _FAILURE_SIGNAL = re.compile(
     r"\b(?:\w*error|failed|failure|\w*exception|traceback|timeout|threshold violation|"
-    r"connection refused|no space left|out of memory|oom|segmentation fault)\b",
+    r"connection refused|no space left|out of memory|oom|segmentation fault)\b|\bnpm ERR!",
     re.IGNORECASE,
 )
 # A line that starts its own log record (timestamp, clock time, bracketed tag, or LEVEL:).
 _RECORD_START = re.compile(r"^(?:\d{4}-\d{2}-\d{2}|\d{2}:\d{2}:\d{2}|\[|[A-Z]{3,}:)")
 _REPEATED_PREFIX = re.compile(r"^(?:\[[^\]]+\]\s*)?(?:info|debug|notice)\b", re.IGNORECASE)
+# `gh run view --log` adds "job<TAB>step<TAB>" and a timestamp before each line's own text.
+_LOG_PREFIX = re.compile(r"^(?:[^\t]*\t[^\t]*\t)?\ufeff?(?:\d{4}-\d{2}-\d{2}T\S+(?: |$))?")
+_HUNK_HEADER = re.compile(r"@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@")
 
 
 def has_failure_signal(line: str) -> bool:
@@ -47,6 +50,24 @@ def failure_evidence_lines(raw_log: str) -> list[str]:
     return list(dict.fromkeys(selected))
 
 
+def _diff_lines(raw_lines: list[str]) -> list[bool]:
+    """Mark unified-diff headers and hunk lines: source text a tool printed (``ruff format --diff``), not log output."""
+
+    texts = [_LOG_PREFIX.sub("", line, count=1) for line in raw_lines]
+    marks = [False] * len(texts)
+    in_hunk = False
+    for index, text in enumerate(texts):
+        if _HUNK_HEADER.match(text):
+            in_hunk = marks[index] = True
+        elif text.startswith("--- ") and index + 1 < len(texts) and texts[index + 1].startswith("+++ "):
+            in_hunk, marks[index], marks[index + 1] = False, True, True
+        elif in_hunk and (not text or text[0] in " +-"):
+            marks[index] = True
+        elif not marks[index]:
+            in_hunk = False
+    return marks
+
+
 def extract_failure_text(raw_log: str, context_before: int = 1, context_after: int = 2) -> str:
     """Return compact failure evidence, including nearby non-repetitive context.
 
@@ -55,7 +76,11 @@ def extract_failure_text(raw_log: str, context_before: int = 1, context_after: i
     are omitted to avoid carrying noisy progress output into a ``CIFailure``.
     """
 
-    lines = [line.strip() for line in raw_log.splitlines() if line.strip()]
+    # Diff content is excluded: an error name in printed source code is not an error that occurred.
+    raw_lines = raw_log.splitlines()
+    lines = [
+        line.strip() for line, diff in zip(raw_lines, _diff_lines(raw_lines), strict=True) if line.strip() and not diff
+    ]
     failure_indexes = [index for index, line in enumerate(lines) if _FAILURE_SIGNAL.search(line)]
     if not failure_indexes:
         return ""

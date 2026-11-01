@@ -91,6 +91,13 @@ _EXPLICIT_ERRORS = (
         "Inspect the first failing test's assertion and the change under test, and reproduce it locally.",
     ),
 )
+# Pipeline stages a historical root cause can place a failure in. A root cause claiming a stage the
+# log does not show (dependency installation, for a Git connection timeout) is not reused.
+_STAGE_TOKENS = {
+    "dependency installation": frozenset(
+        {"dependency", "dependencies", "install", "installation", "requirement", "requirements"}
+    ),
+}
 # An explicit error counts like three matching keywords toward confidence.
 _EXPLICIT_ERROR_WEIGHT = 3.0
 _ALL_ERROR_TOKENS = frozenset().union(*(error.incident_tokens for error in _EXPLICIT_ERRORS))
@@ -99,7 +106,7 @@ _ALL_ERROR_TOKENS = frozenset().union(*(error.incident_tokens for error in _EXPL
 # treated as a symptom and the general evidence decides.
 _ENVIRONMENT_ERROR = re.compile(
     r"no space left on device|out of memory|\boom(?:killed)?\b|\bMemoryError\b|timed out|\btimeout\b"
-    r"|could not resolve|name resolution|name or service not known|connection (?:refused|reset)"
+    r"|could not resolve host|name resolution|name or service not known|connection (?:refused|reset)"
     r"|\b503\b|service unavailable",
     re.IGNORECASE,
 )
@@ -223,7 +230,7 @@ def analyze_failure(
         evidence.append(f"Failure text contains {', '.join(sorted(direct_signals[candidate]))}.")
 
     confidence = min(0.95, 0.35 + (0.1 * category_scores[candidate]))
-    if strongest_match is not None:
+    if strongest_match is not None and _root_cause_applies(failure_tokens, explicit, strongest_match):
         # Packaged incidents have no root_cause, so their summary remains the output.
         root_cause = strongest_match.root_cause or strongest_match.summary
         recommendation = strongest_match.recommendation
@@ -242,6 +249,23 @@ def analyze_failure(
         owner=_OWNERS[candidate],
         matched_incident_ids=relevant_matches,
     )
+
+
+def _root_cause_applies(
+    failure_tokens: set[str], explicit: _ExplicitError | None, incident: HistoricalIncident
+) -> bool:
+    """Whether every pipeline stage the incident's root cause claims is shown by the log's words or explicit error.
+
+    Matching is unaffected: an incident can be a relevant match without its root cause applying.
+    """
+
+    claimed = {stage for stage, words in _STAGE_TOKENS.items() if incident_tokens(incident) & words}
+    shown = {
+        stage
+        for stage, words in _STAGE_TOKENS.items()
+        if failure_tokens & words or (explicit is not None and explicit.kind.startswith(stage))
+    }
+    return claimed <= shown
 
 
 def _explicit_result(

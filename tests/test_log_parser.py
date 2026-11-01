@@ -86,3 +86,66 @@ def test_github_actions_job_and_step_prefixes_do_not_create_continuations() -> N
     )
 
     assert failure_evidence_lines("\n".join(lines)) == [lines[0]]
+
+
+# Phase 16A: diff content printed by tools is source text, not log output.
+
+_GH = "Lint (Ruff)\tRuff format check\t2026-10-23T16:42:10.9330518Z "
+RUFF_FORMAT_DIFF = "\n".join(
+    _GH + line
+    for line in [
+        "--- tests/test_models.py",
+        "+++ tests/test_models.py",
+        "@@ -2,9 +2,7 @@",
+        "",
+        " def test_models_parse_valid_data() -> None:",
+        "-    failure = CIFailure.model_validate(",
+        '-        {"failure_text": "AssertionError: expected 2"}',
+        "-    )",
+        '+    failure = CIFailure.model_validate({"failure_text": "AssertionError: expected 2"})',
+        "     raise ImportError('context line in the hunk')",
+        "",
+        "12 files would be reformatted, 22 files already formatted",
+        "##[error]Process completed with exit code 1.",
+    ]
+)
+
+
+def test_diff_hunks_from_github_actions_logs_are_not_failure_text() -> None:
+    extracted = extract_failure_text(RUFF_FORMAT_DIFF)
+
+    assert "AssertionError" not in extracted and "ImportError" not in extracted
+    assert "##[error]Process completed with exit code 1." in extracted
+
+
+def test_errors_after_a_diff_are_kept() -> None:
+    log = RUFF_FORMAT_DIFF + "\n" + _GH + "E   ModuleNotFoundError: No module named 'yaml'"
+
+    assert "ModuleNotFoundError: No module named 'yaml'" in extract_failure_text(log)
+
+
+def test_lines_that_only_look_like_diff_lines_are_kept() -> None:
+    log = (
+        "--- summary ---\n"
+        "- ModuleNotFoundError: No module named 'yaml'\n"
+        "+ retrying failed step\n"
+        "E       - expected\n"
+        "E       + actual: AssertionError\n"
+    )
+
+    extracted = extract_failure_text(log)
+
+    assert "- ModuleNotFoundError: No module named 'yaml'" in extracted
+    assert "E       + actual: AssertionError" in extracted
+
+
+def test_failure_evidence_lines_are_unchanged_so_dedup_fingerprints_stay_stable() -> None:
+    # Only analysis input excludes diffs; recorded evidence and its fingerprints are not affected.
+    assert any("AssertionError" in line for line in failure_evidence_lines(RUFF_FORMAT_DIFF))
+
+
+def test_npm_errors_are_failure_evidence() -> None:
+    log = "added 12 packages\nnpm ERR! code ERESOLVE\nnpm ERR! ERESOLVE unable to resolve dependency tree\n"
+
+    assert "npm ERR! code ERESOLVE" in extract_failure_text(log)
+    assert "npm ERR! code ERESOLVE" in failure_evidence_lines(log)

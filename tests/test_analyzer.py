@@ -319,3 +319,90 @@ def test_a_missing_module_incident_never_explains_an_import_error_even_with_shar
 
     assert "team-yaml-missing-001" in result.matched_incident_ids
     assert result.root_cause.startswith("An import failed (ImportError)")
+
+
+# Phase 16A: diff content, root-cause eligibility, and npm failures.
+
+
+def test_source_printed_in_a_ruff_diff_is_not_a_raised_error() -> None:
+    log = "\n".join(
+        "Lint (Ruff)\tRuff format check\t2026-10-23T16:42:10.9330518Z " + line
+        for line in [
+            "--- tests/test_models.py",
+            "+++ tests/test_models.py",
+            "@@ -2,9 +2,7 @@",
+            '-        {"failure_text": "AssertionError: expected 2"}',
+            '+    failure = CIFailure.model_validate({"failure_text": "AssertionError: expected 2"})',
+            "12 files would be reformatted, 22 files already formatted",
+            "##[error]Process completed with exit code 1.",
+        ]
+    )
+
+    result = _analyze(log)
+
+    assert not any("explicit" in line for line in result.evidence)
+    assert "synthetic-software-assertion-003" not in result.matched_incident_ids
+
+
+GIT_TIMEOUT = (
+    "fatal: unable to access 'https://github.com/example/lib.git/': Failed to connect to github.com port 443"
+    " after 134912 ms: Connection timed out\n##[error]Process completed with exit code 128.\n"
+)
+
+
+def test_a_dependency_installation_root_cause_is_not_reused_for_a_git_timeout() -> None:
+    result = _analyze(GIT_TIMEOUT)
+
+    assert result.category == "network"
+    assert "synthetic-network-timeout-005" in result.matched_incident_ids  # still a relevant match
+    assert result.root_cause == "Failure text indicates a likely network issue."
+    assert "Dependency" not in result.recommendation
+
+
+def test_a_dependency_installation_root_cause_applies_when_the_log_shows_that_stage() -> None:
+    timeout_root_cause = next(item for item in INCIDENTS if item.id == "synthetic-network-timeout-005").summary
+    pip_timeout = (
+        "WARNING: Retrying after connection broken by 'ReadTimeoutError(\"HTTPSConnectionPool(host='pypi.org',"
+        " port=443): Read timed out. (read timeout=15)\")': /simple/requests/\n"
+        "ERROR: Could not find a version that satisfies the requirement requests (from versions: none)\n"
+    )
+
+    structured = CIFailure(failure_text="Dependency download timed out while contacting the registry.")
+    assert analyze_failure(structured, INCIDENTS).root_cause == timeout_root_cause
+    # The explicit dependency-installation error shows the stage even without the word "dependency".
+    assert _analyze(pip_timeout).root_cause == timeout_root_cause
+
+
+@pytest.mark.parametrize(
+    ("log", "incident_id"),
+    [
+        ("[  412.118] Out of memory: Killed process 8123 (python)\n", "synthetic-hardware-memory-002"),
+        (
+            "Provisioning failed: container runner cannot locate its configured image version.\n",
+            "synthetic-infrastructure-image-007",
+        ),
+    ],
+    ids=["oom", "image"],
+)
+def test_root_causes_that_claim_no_pipeline_stage_are_still_reused(log: str, incident_id: str) -> None:
+    incident = next(item for item in INCIDENTS if item.id == incident_id)
+
+    assert _analyze(log).root_cause == incident.summary
+
+
+def test_npm_dependency_resolution_failure_is_a_software_dependency_failure() -> None:
+    log = (
+        "npm ERR! code ERESOLVE\nnpm ERR! ERESOLVE unable to resolve dependency tree\n"
+        'npm ERR! Could not resolve dependency:\nnpm ERR! peer react@"^17.0.0" from legacy-widget@2.4.0\n'
+    )
+
+    result = _analyze(log)
+
+    assert result.category == "software"
+    assert result.root_cause.startswith("Dependency installation failed")
+
+
+def test_an_unresolvable_host_still_marks_an_environment_error() -> None:
+    log = "curl: (6) Could not resolve host: files.internal.example\nE       AssertionError: download missing\n"
+
+    assert not any("explicit" in line for line in _analyze(log).evidence)
