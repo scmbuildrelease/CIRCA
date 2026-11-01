@@ -80,3 +80,16 @@ def dedup_fingerprint(evidence: Iterable[str]) -> str:
 
     lines = sorted({line for line in (normalize_volatile_text(item) for item in evidence) if line})
     return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
+
+def normalized_log_lines(text: str) -> list[str]:
+    """Return the non-blank lines of ``text`` normalized for comparison with recorded evidence."""
+
+    return [normalize_volatile_text(line) for line in text.splitlines() if line.strip()]
+
+
+def evidence_observed(evidence: Iterable[str], log_lines: list[str]) -> bool:
+    """Whether every recorded evidence line occurs in one of ``log_lines`` (from :func:`normalized_log_lines`)."""
+
+    recorded = [normalize_volatile_text(line) for line in evidence]
+    return bool(recorded) and all(any(line in log_line for log_line in log_lines) for line in recorded)

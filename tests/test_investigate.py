@@ -707,6 +707,11 @@ CI_GATE_EVIDENCE = [
         "permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
     ),
     "Type check (mypy)\tRun mypy\t2026-10-23T16:42:24.2208760Z Found 9 errors in 6 files (checked 17 source files)",
+    # A line naming a file: the tool summaries above appear in any failure of their kind.
+    (
+        "Type check (mypy)\tRun mypy\t2026-10-23T16:42:22.9822026Z src/circa/resources.py:13: error: Argument 1 to "
+        '"Path" has incompatible type "Traversable"; expected "str | PathLike[str]"  [arg-type]'
+    ),
 ]
 
 
@@ -776,6 +781,38 @@ def test_keyword_similarity_without_the_recorded_evidence_is_not_a_known_solutio
 
     assert report["outcome"] not in {"known_solution", "existing_record"}
     assert len(provider.prompts) == 1  # diagnosed, not answered with an unrelated verified fix
+
+
+def test_a_record_of_tool_summaries_only_is_not_a_known_solution_even_when_all_are_observed() -> None:
+    # Phase 22: these four summaries appear in any failure of the same four checks, so seeing them all again
+    # does not show that this is the recorded incident or that its validated fix applies.
+    summaries = CI_GATE_EVIDENCE[:4]
+    record = HistoricalIncident.model_validate(
+        {
+            "id": "team-ci-gate-summaries-001",
+            "title": "New CI quality gate failed on pre-existing findings",
+            "category": "software",
+            "summary": "Prettier, Ruff format, mypy, and Bandit B310 failed when the quality gate was added.",
+            "keywords": ["quality gate", "Prettier", "ruff format", "mypy", "Bandit", "B310"],
+            "recommendation": "Bring existing code into compliance in the change that enables a new check.",
+            "root_cause": "The quality gate was enabled without bringing the existing code into compliance.",
+            "evidence": summaries,
+            "fix": {
+                "description": "Formatted the files and fixed the findings.",
+                "validation_status": "validated",
+                "validation_method": "reproduced_then_fixed",
+                "validation_evidence": "Synthetic: checks fail before, pass after.",
+            },
+            "status": "verified",
+            "synthetic": True,
+        }
+    )
+
+    investigation = investigate_log("\n".join(summaries), [record], None, source_name="later.log")
+
+    assert investigation.outcome != "known_solution" and investigation.matched_incident is None
+    assert record.id not in investigation.analysis.matched_incident_ids
+    assert investigation.analysis.root_cause != record.root_cause
 
 
 GH_RUN_URL = "https://github.com/scmbuildrelease/CIRCA/actions/runs/39988949831"

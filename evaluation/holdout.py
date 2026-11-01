@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -26,6 +27,8 @@ from circa.pipeline import investigate_log
 
 ROOT = Path(__file__).resolve().parents[1]
 TEAM_FILE = ROOT / "team" / "incidents.json"
+# CIRCA removes ANSI colors when it fetches a run log itself (circa.github_runs); logs fetched with gh need the same.
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 @dataclass(frozen=True)
@@ -83,7 +86,7 @@ def _read_log(query: Query, log_dir: Path | None) -> str | None:
         if log_dir is None:
             return None
         path = log_dir / f"circa-{query.log.removeprefix('run:')}.log"
-        return path.read_text(encoding="utf-8") if path.exists() else None
+        return _ANSI.sub("", path.read_text(encoding="utf-8")) if path.exists() else None
     return (ROOT / "evaluation" / query.log).read_text(encoding="utf-8")
 
 
@@ -128,7 +131,7 @@ def _fraction(count: int, total: int) -> str:
 
 
 def summarize(results: list[QueryResult]) -> dict[str, dict[str, str]]:
-    """Metrics per group. No held-out failure has another relevant incident, so any match is a false match."""
+    """Metrics per group. No held-out failure has another relevant team incident, so any team match is false."""
 
     groups = {
         "verified_or_fix_validated": [r for r in results if r.label != "pending_review"],
@@ -142,12 +145,14 @@ def summarize(results: list[QueryResult]) -> dict[str, dict[str, str]]:
             "cases": str(total),
             "category_accuracy": _fraction(sum(r.category_correct for r in group), total),
             "unknown_category": _fraction(sum(r.predicted_category == "unknown" for r in group), total),
-            "any_historical_match (all false)": _fraction(sum(bool(r.ranked_matches) for r in group), total),
-            "real_team_incident_matched (false)": _fraction(sum(bool(r.team_matches) for r in group), total),
+            "team_incident_matched (all false)": _fraction(sum(bool(r.team_matches) for r in group), total),
+            "packaged_synthetic_matched (see cases.json labels)": _fraction(
+                sum(len(r.ranked_matches) > len(r.team_matches) for r in group), total
+            ),
             "other_incident_root_cause_reported (wrong)": _fraction(
                 sum(r.root_cause_from is not None for r in group), total
             ),
-            "no_match": _fraction(sum(not r.ranked_matches for r in group), total),
+            "no_historical_match": _fraction(sum(not r.ranked_matches for r in group), total),
             "known_solution_returned (wrong fix)": _fraction(sum(r.outcome == "known_solution" for r in group), total),
         }
     return summary

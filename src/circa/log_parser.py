@@ -23,6 +23,12 @@ _BANDIT_LOCATION = re.compile(r"^\s*Location: \S+:\d+:\d+")
 _NUMBERED_SOURCE = re.compile(r"^\d+\t")
 
 
+def record_text(line: str) -> str:
+    """Return a log line's own text, without the ``gh run view --log`` job, step, and timestamp prefix."""
+
+    return _LOG_PREFIX.sub("", line, count=1)
+
+
 def has_failure_signal(line: str) -> bool:
     """Return whether a log line contains a recognized failure signal."""
 
@@ -63,7 +69,7 @@ def _printed_source_lines(raw_lines: list[str]) -> list[bool]:
     snippet Bandit prints after each finding's location.
     """
 
-    texts = [_LOG_PREFIX.sub("", line, count=1) for line in raw_lines]
+    texts = [record_text(line) for line in raw_lines]
     marks = [False] * len(texts)
     in_hunk = in_snippet = False
     for index, text in enumerate(texts):

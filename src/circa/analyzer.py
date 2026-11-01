@@ -8,8 +8,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from .fingerprint import failure_fingerprint, normalize_environment
+from .fingerprint import (
+    evidence_observed,
+    failure_fingerprint,
+    normalize_environment,
+    normalize_volatile_text,
+    normalized_log_lines,
+)
 from .knowledge import find_similar_incidents, incident_tokens, load_incidents, tokenize
+from .log_parser import record_text
 from .models import AnalysisResult, CauseCategory, CIFailure, HistoricalIncident
 from .resources import data_path
 
@@ -233,9 +240,47 @@ def _data_path() -> Path:
     return data_path("incidents.json")
 
 
+# A specific subject: a file or path name, a version, a dotted name, or a quoted identifier.
+_SPECIFIC_SUBJECT = re.compile(r"\w[./]\w|['\"`][\w.-]+['\"`]")
+# Placeholders that normalize_volatile_text puts where timestamps, hashes, and other volatile values were.
+_PLACEHOLDER_TOKENS = frozenset({"timestamp", "time", "uuid", "address", "hash", "temp-path", "duration", "n", "id"})
+
+
+def _distinctive_evidence(line: str) -> bool:
+    """Whether a recorded evidence line can tell its incident apart from other failures of the same kind.
+
+    A tool's failure summary ("Code style issues found in 2 files", "Found 9 errors in 6 files") and the
+    runner's exit status appear in every failure of that kind, so they count only when they name a specific
+    file, version, or identifier. Any other line counts when it has words beyond generic CI terms.
+    """
+
+    text = normalize_volatile_text(record_text(line))
+    if _SPECIFIC_SUBJECT.search(text):
+        return True
+    if any(error.pattern.search(record_text(line)) for error in _EXPLICIT_ERRORS):
+        return False
+    terms = {term.strip("./#[]-") for term in tokenize(text)} - _GENERIC_TOKENS - _PLACEHOLDER_TOKENS
+    return any(term and not term.isdigit() for term in terms)
+
+
+def _grounded(incident: HistoricalIncident, log_lines: list[str]) -> bool:
+    """Whether an incident may inform this failure's category, root cause, and recommendation.
+
+    An incident that records evidence or a root cause (team knowledge) must have all its evidence observed in
+    the log, including at least one distinctive line; shared words alone are only similarity. Packaged
+    synthetic incidents record neither: they are keyword signatures, matched by their keywords as before.
+    """
+
+    if not incident.evidence and not incident.root_cause:
+        return True
+    return evidence_observed(incident.evidence, log_lines) and any(map(_distinctive_evidence, incident.evidence))
+
+
 def analyze_failure(
     failure: CIFailure,
     incidents: Iterable[HistoricalIncident] | None = None,
+    *,
+    log: str | None = None,
 ) -> AnalysisResult:
     """Analyze one failure using local keyword and environment evidence only.
 
@@ -245,9 +290,14 @@ def analyze_failure(
     made a test fail. Otherwise a category requires at least two matching
     incident keywords beyond generic CI words, or two direct category keywords.
     This favors ``unknown`` when the evidence is sparse.
+
+    A historical incident with recorded evidence takes part only if that evidence is grounded in ``log``
+    (the whole redacted log; ``failure.failure_text`` when not given).
     """
 
     available_incidents = list(incidents) if incidents is not None else load_incidents(_data_path())
+    log_lines = normalized_log_lines(failure.failure_text if log is None else log)
+    available_incidents = [incident for incident in available_incidents if _grounded(incident, log_lines)]
     matches = find_similar_incidents(failure, available_incidents)
     failure_tokens = tokenize(failure.failure_text)
     explicit = _explicit_error(failure.failure_text)

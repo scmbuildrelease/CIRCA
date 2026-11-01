@@ -5,8 +5,10 @@ import pytest
 from circa.analyzer import analyze_failure
 from circa.fingerprint import failure_fingerprint
 from circa.knowledge import find_similar_incidents, load_incidents
+from circa.knowledge_store import analysis_incidents, load_knowledge
 from circa.log_parser import extract_failure_text
 from circa.models import CIFailure, HistoricalIncident
+from circa.pipeline import analyze_log
 from circa.resources import data_path
 
 
@@ -38,6 +40,7 @@ def test_analyzer_returns_unknown_for_weak_evidence() -> None:
 
 # Explicit errors take precedence over keyword similarity.
 
+ROOT = Path(__file__).parents[1]
 RUN_41312342881 = Path(__file__).parent / "fixtures" / "real_incidents" / "circa-run-41312342881-pytest-assertion.log"
 INCIDENTS = load_incidents(data_path("incidents.json"))
 
@@ -164,7 +167,7 @@ def test_strong_environment_evidence_is_not_overridden_by_an_assertion() -> None
     assert "synthetic-hardware-disk-001" in result.matched_incident_ids
 
 
-def test_verified_team_incident_with_shared_terms_still_supplies_the_root_cause() -> None:
+def test_verified_team_incident_with_observed_evidence_still_supplies_the_root_cause() -> None:
     team = HistoricalIncident.model_validate(
         {
             "id": "team-requests-missing-001",
@@ -174,6 +177,7 @@ def test_verified_team_incident_with_shared_terms_still_supplies_the_root_cause(
             "keywords": ["modulenotfounderror", "requests", "integration", "image"],
             "recommendation": "Add requests to the integration image requirements.",
             "root_cause": "The integration image was rebuilt without requests.",
+            "evidence": ["E   ModuleNotFoundError: No module named 'requests'"],
             "status": "verified",
             "synthetic": True,
         }
@@ -265,7 +269,9 @@ def test_a_test_failing_with_an_import_error_is_an_import_failure() -> None:
     assert _explicit_kind(result) == "Failure text contains an explicit import failure (ImportError)."
 
 
-def _verified(incident_id: str, keywords: list[str], root_cause: str) -> HistoricalIncident:
+def _verified(incident_id: str, keywords: list[str], root_cause: str, evidence: list[str]) -> HistoricalIncident:
+    """A verified team incident; its ``evidence`` must occur in the analyzed log for it to take part."""
+
     return HistoricalIncident.model_validate(
         {
             "id": incident_id,
@@ -275,6 +281,7 @@ def _verified(incident_id: str, keywords: list[str], root_cause: str) -> Histori
             "keywords": keywords,
             "recommendation": "Apply the documented fix.",
             "root_cause": root_cause,
+            "evidence": evidence,
             "status": "verified",
             "synthetic": True,
         }
@@ -282,18 +289,22 @@ def _verified(incident_id: str, keywords: list[str], root_cause: str) -> Histori
 
 
 def test_an_incident_that_only_mentions_import_does_not_contradict_an_assertion() -> None:
-    golden = _verified("team-golden-001", ["golden", "snapshot", "import"], "Import order changed the golden file.")
+    line = "E       AssertionError: golden snapshot mismatch in report.json"
+    golden = _verified(
+        "team-golden-001", ["golden", "snapshot", "import"], "Import order changed the golden file.", [line]
+    )
 
-    result = _analyze("E       AssertionError: golden snapshot mismatch in report.json\n", [*INCIDENTS, golden])
+    result = _analyze(line + "\n", [*INCIDENTS, golden])
 
     assert result.matched_incident_ids == ["team-golden-001"]
     assert result.root_cause == "Import order changed the golden file."
 
 
 def test_an_import_error_incident_explains_a_missing_module_with_one_shared_term() -> None:
-    ujson = _verified("team-ujson-001", ["importerror", "ujson", "arm64"], "ujson had no arm64 wheel.")
+    line = "E   ModuleNotFoundError: No module named 'ujson'"
+    ujson = _verified("team-ujson-001", ["importerror", "ujson", "arm64"], "ujson had no arm64 wheel.", [line])
 
-    result = _analyze("E   ModuleNotFoundError: No module named 'ujson'\n", [*INCIDENTS, ujson])
+    result = _analyze(line + "\n", [*INCIDENTS, ujson])
 
     assert result.matched_incident_ids[0] == "team-ujson-001"
     assert result.root_cause == "ujson had no arm64 wheel."
@@ -308,14 +319,12 @@ def test_a_missing_module_incident_does_not_explain_a_cannot_import_name_error()
 
 def test_a_missing_module_incident_never_explains_an_import_error_even_with_shared_terms() -> None:
     # "cannot import name ... from 'yaml'" means yaml is installed; a "yaml not installed" incident is related, not the cause.
+    line = "E   ImportError: cannot import name 'SafeLoader' from 'yaml' (/venv/yaml/__init__.py)"
     yaml_missing = _verified(
-        "team-yaml-missing-001", ["modulenotfounderror", "yaml", "loader"], "pyyaml was not installed."
+        "team-yaml-missing-001", ["modulenotfounderror", "yaml", "loader"], "pyyaml was not installed.", [line]
     )
 
-    result = _analyze(
-        "E   ImportError: cannot import name 'SafeLoader' from 'yaml' (/venv/yaml/__init__.py)\nE   loader setup failed\n",
-        [*INCIDENTS, yaml_missing],
-    )
+    result = _analyze(line + "\nE   loader setup failed\n", [*INCIDENTS, yaml_missing])
 
     assert "team-yaml-missing-001" in result.matched_incident_ids
     assert result.root_cause.startswith("An import failed (ImportError)")
@@ -568,6 +577,7 @@ def test_a_verified_incident_naming_the_tool_supplies_the_root_cause() -> None:
         "team-ruff-format-001",
         ["ruff", "reformatted", "quality", "gate"],
         "The quality gate was enabled before the code was formatted.",
+        ["12 files would be reformatted, 22 files already formatted", "quality gate failed"],
     )
 
     result = _analyze(
@@ -575,3 +585,86 @@ def test_a_verified_incident_naming_the_tool_supplies_the_root_cause() -> None:
     )
 
     assert result.root_cause == "The quality gate was enabled before the code was formatted."
+
+
+# Phase 22: a team incident informs a failure only when its recorded evidence, including a distinctive
+# line, is observed in the log. Shared words and tool summaries are similarity, not evidence.
+
+PRETTIER_SUMMARY = (
+    "Format (Prettier)\tCheck formatting\t2026-11-01T17:31:41.0204453Z [warn] Code style issues found in 2 files. "
+    "Run Prettier with --write to fix."
+)
+NOTES_LINE = "Format (Prettier)\tCheck formatting\t2026-11-01T17:31:40.8905916Z [warn] notes.md"
+TEAM_ROOT_CAUSE = "Release-notes scratch files were committed by mistake."
+
+
+def _team(evidence: list[str], category: str = "software", keywords: tuple[str, ...] = ()) -> HistoricalIncident:
+    return HistoricalIncident.model_validate(
+        {
+            "id": "team-scratch-files-001",
+            "title": "Prettier failed on release-notes scratch files committed to the repository",
+            "category": category,
+            "summary": "Code style issues found in scratch release notes files found in the repository.",
+            "keywords": ["prettier", "code style issues found", "release notes", *keywords],
+            "recommendation": "Remove the scratch files.",
+            "root_cause": TEAM_ROOT_CAUSE,
+            "evidence": evidence,
+            "status": "verified",
+            "synthetic": True,
+        }
+    )
+
+
+def test_shared_generic_words_do_not_carry_an_unrelated_incidents_category_or_root_cause() -> None:
+    incident = _team([NOTES_LINE, PRETTIER_SUMMARY], category="hardware", keywords=("repository", "release", "rule"))
+    log = "HttpError: Repository rule violations found for release v1.2\nCannot update this protected ref.\n"
+
+    with_team = analyze_log(log, incidents=[*INCIDENTS, incident])
+
+    # Evidence is insufficient, so the result is the same safe unknown as without team knowledge.
+    assert with_team == analyze_log(log, incidents=INCIDENTS)
+    assert with_team.category == "unknown" and with_team.matched_incident_ids == []
+    assert TEAM_ROOT_CAUSE not in with_team.root_cause
+
+
+def test_the_tt_metal_protected_tag_failure_inherits_nothing_from_circas_team_incidents() -> None:
+    # Phase 21: "found", "release", and "repository" made this GitHub ruleset rejection "software", with
+    # CIRCA's own scratch-files commit as its root cause.
+    log = (ROOT / "evaluation" / "logs" / "tt-metal-protected-tag.log").read_text(encoding="utf-8")
+    team = analysis_incidents(load_knowledge(ROOT / "team" / "incidents.json").incidents)
+    team_root_causes = {incident.root_cause for incident in team if incident.root_cause}
+
+    result = analyze_log(log, incidents=team)
+
+    assert result.category == "unknown" and result.matched_incident_ids == []
+    assert result.root_cause not in team_root_causes
+
+
+def test_an_incident_whose_distinctive_evidence_is_observed_still_explains_the_failure() -> None:
+    later = [line.replace("2026-11-01T17:31", "2026-11-09T08:02") for line in (NOTES_LINE, PRETTIER_SUMMARY)]
+    log = "\n".join([*later, "Format (Prettier)\tCheck formatting\t2026-11-09T08:02:41Z ##[error]Process completed"])
+
+    result = analyze_log(log, incidents=[*INCIDENTS, _team([NOTES_LINE, PRETTIER_SUMMARY])])
+
+    assert result.category == "software"
+    assert result.matched_incident_ids == ["team-scratch-files-001"]
+    assert result.root_cause == TEAM_ROOT_CAUSE
+
+
+def test_observed_tool_summaries_alone_do_not_ground_an_incident() -> None:
+    # Every two-file Prettier failure prints this line; the incident's own file name is not in this log.
+    result = analyze_log(PRETTIER_SUMMARY + "\n", incidents=[*INCIDENTS, _team([PRETTIER_SUMMARY])])
+
+    # Deterministic classification is unaffected: the formatter rule still explains the failure.
+    assert result.category == "software" and result.matched_incident_ids == []
+    assert result.root_cause.startswith("A formatting check failed")
+
+
+def test_evidence_is_grounded_in_the_whole_log_not_only_the_extracted_failure_text() -> None:
+    # The file-name line is context the failure-text extractor can leave out; grounding reads the full log.
+    filler = [f"Format (Prettier)\tCheck formatting\t2026-11-09T08:02:3{n}Z Checking formatting..." for n in range(5)]
+    log = "\n".join([NOTES_LINE, *filler, PRETTIER_SUMMARY])
+
+    result = analyze_log(log, incidents=[*INCIDENTS, _team([NOTES_LINE, PRETTIER_SUMMARY])])
+
+    assert result.matched_incident_ids == ["team-scratch-files-001"]

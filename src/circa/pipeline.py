@@ -9,7 +9,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from .analyzer import analyze_failure
-from .fingerprint import dedup_fingerprint, normalize_volatile_text
+from .fingerprint import dedup_fingerprint, evidence_observed, normalize_volatile_text, normalized_log_lines
 from .knowledge import find_similar_incident_matches, tokenize
 from .knowledge_store import NEAR_DUPLICATE_MIN_SCORE, analysis_incidents, find_near_duplicates
 from .llm import DiagnosisProvider, diagnose_failure
@@ -58,7 +58,7 @@ def _analyze_redacted_log(
 ) -> AnalysisResult:
     failure_text = extract_failure_text(log) or _NO_EVIDENCE
     failure = CIFailure(failure_text=failure_text, environment=dict(environment or {}))
-    result = analyze_failure(failure, incidents)
+    result = analyze_failure(failure, incidents, log=log)
     return result.model_copy(update={"performance_assessment": analyze_performance_failure(log)})
 
 
@@ -164,12 +164,7 @@ def _known_solution(
     evidence lines must also appear in this log once volatile values are normalized.
     """
 
-    normalized_log = [normalize_volatile_text(line) for line in raw_log.splitlines() if line.strip()]
-
-    def evidence_observed(incident: HistoricalIncident) -> bool:
-        return bool(incident.evidence) and all(
-            any(normalize_volatile_text(line) in log_line for log_line in normalized_log) for line in incident.evidence
-        )
+    normalized_log = normalized_log_lines(raw_log)
 
     def has_validated_fix(incident: HistoricalIncident) -> bool:
         return (
@@ -186,7 +181,7 @@ def _known_solution(
             match.score >= NEAR_DUPLICATE_MIN_SCORE
             and match.incident.id in analysis.matched_incident_ids
             and has_validated_fix(match.incident)
-            and evidence_observed(match.incident)
+            and evidence_observed(match.incident.evidence, normalized_log)
         ):
             return match.incident, f"keyword score {match.score:g} and its recorded evidence"
     return None

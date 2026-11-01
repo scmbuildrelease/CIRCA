@@ -444,7 +444,11 @@ def test_superseded_incidents_do_not_participate_in_matching(tmp_path: Path) -> 
 
 
 def test_verified_team_root_cause_is_reported_and_packaged_results_are_unchanged(tmp_path: Path) -> None:
-    failure = CIFailure(failure_text="scratch volume full during the linker step on build workers")
+    # The draft's recorded evidence line is in the failure, so the verified incident may explain it.
+    failure = CIFailure(
+        failure_text="2026-10-22T10:14:16Z [ERROR] linker output could not be written: no space left on device\n"
+        "scratch volume full during the linker step on build workers"
+    )
     path = _saved(tmp_path / "team.json", _draft(), verify=True)
 
     baseline = analyze_failure(failure)
