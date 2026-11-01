@@ -168,7 +168,9 @@ def test_secret_patterns_are_rejected_in_any_text_field(secret: str) -> None:
         _incident(environment={"note": secret})
 
 
-@pytest.mark.parametrize("redacted", ["password=<redacted>", "token: ***", "token expired while fetching"])
+@pytest.mark.parametrize(
+    "redacted", ["password=[REDACTED]", "password=<redacted>", "token: ***", "token expired while fetching"]
+)
 def test_redacted_or_ordinary_wording_is_allowed(redacted: str) -> None:
     assert _incident(evidence=[f"auth failed: {redacted}"])
 

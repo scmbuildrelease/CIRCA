@@ -28,7 +28,8 @@ CI log → failure evidence → deterministic analysis → verified team inciden
 - **Human approval.** Drafts never become verified knowledge until a reviewer
   approves them; a fix is `validated` only with evidence the reviewer supplies.
 - **Safe output.** Terminal control sequences in CI logs are removed before
-  display; credentials are never printed.
+  display, and common credential formats are redacted before analysis
+  (best-effort; see [Secrets redaction](#secrets-redaction)).
 
 ## 3. Quick start
 
@@ -202,7 +203,7 @@ run):
    diagnosis.
 4. Otherwise the optional local Ollama model is asked **once** for a structured
    diagnosis hypothesis. The prompt holds only extracted failure lines (at most
-   3,000 characters, credential-looking lines removed), the deterministic
+   3,000 characters, credentials redacted), the deterministic
    result, and up to three weak historical matches, never the raw log.
 5. A useful diagnosis is saved to the `--knowledge` file as a `pending_review`
    draft through the normal lifecycle checks. Each check below is independent,
@@ -396,9 +397,9 @@ circa knowledge validate team/incidents.json
   `draft_origin.ai_generated`. Only a human reviewer's `--validation-*` options
   or an edited draft can mark a fix `validated`. `--llm` results are never stored.
 - `evidence` holds at most 10 single-line excerpts of at most 300 characters,
-  never raw logs. Text matching obvious credential patterns (private-key
-  headers, AWS, GitHub, and Slack tokens, `password=`-style assignments) is
-  rejected. This is a safety net, not a substitute for review and Gitleaks.
+  never raw logs. Text containing a credential that CIRCA recognizes (see
+  [Secrets redaction](#secrets-redaction)) is rejected rather than redacted.
+  This is a safety net, not a substitute for review and Gitleaks.
 - `superseded_by` must be set exactly when `status` is `superseded` and must
   name an incident in the same file. IDs may not repeat or collide with
   packaged incident IDs.
@@ -485,8 +486,58 @@ gh run ───┘    (github_runs)                                          �
 Untrusted text (CI logs, GitHub names, error output) is shown on the terminal
 only after removing escape sequences (colors, cursor movement, title and
 hyperlink changes), control characters other than tab and newline, and
-bidirectional-override characters. Analysis always uses the original log, and
-`--json` output keeps the original text (JSON escapes control characters).
+bidirectional-override characters. Analysis uses the log with only credentials
+redacted, and `--json` output keeps the original text (JSON escapes control
+characters).
+
+### Secrets redaction
+
+`redaction.py` replaces recognized credential values with `[REDACTED]` and keeps
+the rest of the message, for example `NPM_TOKEN=[REDACTED]` or
+`https://ci-bot:[REDACTED]@git.example.com`. A private key becomes one
+`[REDACTED]` per line, so line structure is kept. One compiled pattern is
+applied in a single pass (about 10 MB/s), using only the standard library.
+
+Processing order: a log is redacted first, when `analyze_log` or
+`investigate_log` receives it, and a `CIFailure` redacts its text and
+environment when it is created. Everything after that point (extraction,
+deterministic analysis, fingerprints, historical matching, LLM prompts, and
+drafts) sees only the redacted text. Terminal and `--json` output is redacted
+again as a safety net, and JSON stays valid because a redacted value never
+includes quotes or backslashes. `gh` and input-validation errors are redacted
+too and never quote input values.
+
+Redaction fails closed: if it cannot complete, the command stops with
+`Error: credential redaction failed, ...` (exit code 1) before anything reads
+the log, so no fingerprint, report, LLM call, or draft is produced. The error
+never includes log text.
+
+Recognized: GitHub (classic and fine-grained), GitLab, Slack, npm, PyPI, Google,
+and OpenAI/Anthropic-style tokens; AWS access key IDs; JSON Web Tokens;
+`Authorization` headers and bearer tokens; passwords in URLs;
+`--password`/`--token`-style options; assignments whose name ends in a
+credential word (`password`, `secret`, `token`, `api_key`, `access_key`,
+`private_key`, as in `AWS_SECRET_ACCESS_KEY=...`); and PEM private keys from
+`BEGIN` through `END`.
+
+Deliberately not redacted:
+
+- Values already masked as `***` or redacted (`[REDACTED]`, or `<redacted>` from
+  earlier versions), so redaction is idempotent.
+- Variable references such as `$TOKEN` or `${{ secrets.TOKEN }}`: they name a
+  secret rather than contain it.
+- Values shorter than four characters, and Python type hints such as
+  `password: str`: they are almost never secrets, and redacting them would hide
+  ordinary diagnostic text.
+- `Bearer` followed by a word without a digit (`Bearer authentication failed`):
+  real bearer tokens contain digits.
+- High-entropy strings with no recognizable name or prefix (commit SHAs,
+  checksums, base64 data): they cannot be told apart from secrets without many
+  false positives, and they are common in CI logs.
+
+Other limitations: detection is pattern-based, not complete. Secrets split
+across lines and credential formats not listed above are not found. Review logs
+before sharing them, and keep Gitleaks in CI.
 
 ## 13. Troubleshooting
 

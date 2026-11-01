@@ -62,7 +62,9 @@ def _packaged_ids() -> set[str]:
     return {incident.id for incident in load_incidents(data_path("incidents.json"))}
 
 
-def _validation_message(error: ValidationError) -> str:
+def validation_message(error: ValidationError) -> str:
+    """Describe validation errors by field and message, without echoing input values."""
+
     return "; ".join(f"{'.'.join(map(str, item['loc'])) or 'record'}: {item['msg']}" for item in error.errors())
 
 
@@ -114,7 +116,7 @@ def load_knowledge(path: str | Path, *, must_exist: bool = True) -> KnowledgeFil
         try:
             incidents.append(HistoricalIncident.model_validate(record))
         except ValidationError as error:
-            raise KnowledgeError(f"{source} record {index}: {_validation_message(error)}") from error
+            raise KnowledgeError(f"{source} record {index}: {validation_message(error)}") from error
     check_incidents(incidents)
     return KnowledgeFile(source, incidents, _digest(data))
 
@@ -149,7 +151,7 @@ def _incident_from_draft(draft: Mapping[str, Any], *, created: date | None, toda
     try:
         incident = HistoricalIncident.model_validate(record)
     except ValidationError as error:
-        raise KnowledgeError(f"invalid draft: {_validation_message(error)}") from error
+        raise KnowledgeError(f"invalid draft: {validation_message(error)}") from error
     return incident.model_copy(update={"fingerprints": [dedup_fingerprint(incident.evidence)]})
 
 
@@ -254,7 +256,7 @@ def verify_incident(
             record["fix"] = IncidentFix.model_validate(fix)
         incident = HistoricalIncident.model_validate(record)
     except ValidationError as error:
-        raise KnowledgeError(f"cannot verify '{incident_id}': {_validation_message(error)}") from error
+        raise KnowledgeError(f"cannot verify '{incident_id}': {validation_message(error)}") from error
     return _replace(knowledge, incident), incident
 
 

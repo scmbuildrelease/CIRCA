@@ -125,7 +125,7 @@ def test_error_output_never_echoes_credentials() -> None:
     error, _ = _fetch(_completed(1, stderr=f"request failed with header Authorization: token {token}"))
 
     assert isinstance(error, GitHubRunError)
-    assert token not in str(error) and "<redacted>" in str(error)
+    assert token not in str(error) and "Authorization: token [REDACTED]" in str(error)
 
 
 GH_RUNS = [

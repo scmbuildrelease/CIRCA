@@ -15,7 +15,7 @@ import subprocess  # nosec B404  # fixed argument list with shell=False
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from .models import contains_secret
+from .redaction import redact_secrets
 
 GH_TIMEOUT_SECONDS = 120.0
 # "." and ".." are not valid repository names, so they are never passed to gh.
@@ -103,7 +103,7 @@ def parse_run_reference(value: str, repository: str | None = None) -> GitHubRun:
 
 def _stderr_summary(stderr: str) -> str:
     lines = [line.strip() for line in stderr.splitlines() if line.strip()]
-    safe = ["<redacted>" if contains_secret(line) else line[:300] for line in lines[:3]]
+    safe = [redact_secrets(line)[:300] for line in lines[:3]]
     return " / ".join(safe) or "no error output"
 
 

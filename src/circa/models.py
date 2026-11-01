@@ -4,7 +4,9 @@ import re
 from datetime import date
 from typing import Literal, Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from .redaction import contains_secret, redact_secrets
 
 CauseCategory = Literal["hardware", "software", "network", "infrastructure", "unknown"]
 IncidentStatus = Literal["pending_review", "verified", "superseded", "rejected"]
@@ -12,25 +14,9 @@ IncidentStatus = Literal["pending_review", "verified", "superseded", "rejected"]
 MAX_EVIDENCE_LINES = 10
 MAX_EVIDENCE_CHARS = 300
 MIN_REPEATED_RUNS = 3
-# Obvious credential shapes. This is a guard against accidental pastes, not a
-# substitute for human review or the repository's Gitleaks scan.
-_SECRET_PATTERNS = (
-    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
-    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
-    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}"),
-    re.compile(r"\bxox[abposr]-[A-Za-z0-9-]{10,}"),
-    re.compile(
-        r"(?i)\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|token)\s*[:=]\s*"
-        r"(?!<redacted>|\*+(?:\s|$))\S+"
-    ),
-)
 _REPEATED_RUNS = re.compile(
     r"\b(\d+)\s+(?:[a-z-]+\s+){0,2}(?:runs|reruns|passes|executions|builds|pipelines|jobs)\b", re.IGNORECASE
 )
-
-
-def contains_secret(text: str) -> bool:
-    return any(pattern.search(text) for pattern in _SECRET_PATTERNS)
 
 
 class CIFailure(BaseModel):
@@ -39,6 +25,17 @@ class CIFailure(BaseModel):
     failure_text: str = Field(min_length=1)
     environment: dict[str, str] = Field(default_factory=dict)
     category: CauseCategory | None = None
+
+    # Credentials are redacted on input, so analysis, prompts, and output never carry them.
+    @field_validator("failure_text")
+    @classmethod
+    def _redact_text(cls, value: str) -> str:
+        return redact_secrets(value)
+
+    @field_validator("environment")
+    @classmethod
+    def _redact_environment(cls, value: dict[str, str]) -> dict[str, str]:
+        return {name: redact_secrets(text) for name, text in value.items()}
 
 
 class IncidentFix(BaseModel):

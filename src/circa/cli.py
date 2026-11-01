@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+from pydantic import ValidationError
+from typer.core import TyperGroup
 
 from .analyzer import analyze_failure
 from .benchmark import BenchmarkMethodResult, load_evaluation_cases, run_retrieval_benchmark
@@ -41,11 +43,13 @@ from .knowledge_store import (
     serialize_incidents,
     supersede_incident,
     update_incident,
+    validation_message,
     verify_incident,
 )
 from .llm import OllamaProvider, classify_failure, explain_analysis
 from .models import AnalysisResult, CIFailure, HistoricalIncident, LLMClassification, SemanticIncidentMatch
 from .pipeline import Investigation, analyze_log, investigate_log
+from .redaction import RedactionError, redact_secrets
 from .resources import data_path
 from .semantic import OllamaEmbeddingProvider, SemanticIncidentRetriever
 
@@ -64,16 +68,37 @@ _UNSAFE_CHARACTER = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u202a-\u202e\u2066
 
 
 def safe_text(text: str) -> str:
-    """Return ``text`` without terminal control sequences, keeping printable Unicode, tabs, and newlines."""
+    """Return ``text`` without terminal control sequences or recognized credentials.
 
-    return _UNSAFE_CHARACTER.sub("", _TERMINAL_SEQUENCE.sub("", text))
+    Printable Unicode, tabs, and newlines are kept.
+    """
+
+    return redact_secrets(_UNSAFE_CHARACTER.sub("", _TERMINAL_SEQUENCE.sub("", text)))
 
 
 def _echo(message: str = "", err: bool = False) -> None:
     typer.echo(safe_text(message), err=err)
 
 
+def _echo_json(document: str) -> None:
+    # JSON escapes control characters itself; only credentials are redacted.
+    typer.echo(redact_secrets(document))
+
+
+class _FailClosedGroup(TyperGroup):
+    """Stop any command whose input or output could not be redacted, without showing either."""
+
+    def invoke(self, ctx: Any) -> Any:
+        try:
+            return super().invoke(ctx)
+        except RedactionError as error:
+            typer.echo(f"Error: {error}", err=True)
+            raise typer.Exit(1) from None
+
+
 app = typer.Typer(
+    cls=_FailClosedGroup,
+    pretty_exceptions_show_locals=False,  # local variables can hold log text or credentials
     help="Analyze CI failures using local deterministic evidence.",
     epilog="Start here: circa doctor, then circa init. "
     "Then: circa runs (list failed GitHub Actions runs), "
@@ -236,7 +261,13 @@ def analyze(
 ) -> None:
     """Analyze a local CIFailure JSON file."""
 
-    failure = CIFailure.model_validate_json(failure_json.read_text(encoding="utf-8"))
+    try:
+        failure = CIFailure.model_validate_json(failure_json.read_text(encoding="utf-8"))
+    except ValidationError as error:
+        # Pydantic's own message quotes input values, which may hold credentials.
+        raise _fail(ValueError(f"invalid CIFailure JSON: {validation_message(error)}")) from error
+    except (OSError, UnicodeDecodeError) as error:
+        raise _fail(error) from error
     analysis_incidents = _analysis_incidents(knowledge)
     deterministic_result = analyze_failure(failure, analysis_incidents)
     if llm:
@@ -266,14 +297,14 @@ def analyze(
                 payload["semantic_matches"] = (
                     [match.model_dump() for match in semantic_matches] if semantic_matches is not None else None
                 )
-            typer.echo(json.dumps(payload, indent=2))
+            _echo_json(json.dumps(payload, indent=2))
         else:
             payload = dict(result.model_dump(exclude=_HYBRID_FIELDS))
             if semantic_retrieve:
                 payload["semantic_matches"] = (
                     [match.model_dump() for match in semantic_matches] if semantic_matches is not None else None
                 )
-            typer.echo(json.dumps(payload, indent=2))
+            _echo_json(json.dumps(payload, indent=2))
         return
     _print_report(result, "Deterministic Analysis" if llm_classify else "CIRCA Analysis Report")
     if classification:
@@ -296,7 +327,7 @@ def analyze_log_file(
 
     result = analyze_log(raw_log_file.read_text(encoding="utf-8"), incidents=_analysis_incidents(knowledge))
     if json_output:
-        typer.echo(result.model_dump_json(indent=2))
+        _echo_json(result.model_dump_json(indent=2))
         return
     _print_report(result)
 
@@ -528,7 +559,7 @@ def investigate_log_file(
         raw_log, team, OllamaProvider(timeout=60.0), source_name=source_name, synthetic=synthetic
     )
     if json_output:
-        typer.echo(investigation.model_dump_json(indent=2, exclude_none=True))
+        _echo_json(investigation.model_dump_json(indent=2, exclude_none=True))
     else:
         _print_investigation(investigation)
     if investigation.draft is None:
@@ -559,7 +590,7 @@ def runs(
     except GitHubRunError as error:
         raise _fail(error) from error
     if json_output:
-        typer.echo(json.dumps([run.as_dict() for run in failed], indent=2))
+        _echo_json(json.dumps([run.as_dict() for run in failed], indent=2))
         return
     _echo("RUN ID\tWORKFLOW\tBRANCH\tCONCLUSION\tCREATED\tURL")
     _print_failed_runs(failed)
@@ -737,7 +768,7 @@ def evaluate(
     except (TypeError, ValueError) as error:
         raise _fail(error) from error
     if json_output:
-        typer.echo(report.model_dump_json(indent=2))
+        _echo_json(report.model_dump_json(indent=2))
         return
     _print_evaluation(report)
 
@@ -914,7 +945,7 @@ def knowledge_show(
         raise _fail(KnowledgeError(f"incident '{incident_id}' not found in {knowledge}"))
     if json_output:
         record = incident.model_dump(mode="json", exclude_none=True, exclude=set(MANAGED_FIELDS))
-        typer.echo(json.dumps(record, indent=2, ensure_ascii=False))
+        _echo_json(json.dumps(record, indent=2, ensure_ascii=False))
         return
     _print_incident(incident)
 

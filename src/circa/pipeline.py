@@ -22,9 +22,9 @@ from .models import (
     CIFailure,
     HistoricalIncident,
     LLMDiagnosis,
-    contains_secret,
 )
 from .performance import analyze_performance_failure
+from .redaction import redact_secrets
 
 _NO_EVIDENCE = "No recognized failure evidence in CI log."
 # The analyzer's minimum: a claim must share at least two distinctive terms with the log.
@@ -44,13 +44,22 @@ def analyze_log(
 ) -> AnalysisResult:
     """Extract failure evidence from a raw log and analyze it locally.
 
-    ``incidents`` defaults to the packaged synthetic incidents.
+    ``incidents`` defaults to the packaged synthetic incidents. Credentials are redacted before
+    anything else reads the log; if that fails, ``RedactionError`` is raised and nothing is analyzed.
     """
 
-    failure_text = extract_failure_text(raw_log) or _NO_EVIDENCE
+    return _analyze_redacted_log(redact_secrets(raw_log), environment, incidents)
+
+
+def _analyze_redacted_log(
+    log: str,
+    environment: Mapping[str, str] | None = None,
+    incidents: Iterable[HistoricalIncident] | None = None,
+) -> AnalysisResult:
+    failure_text = extract_failure_text(log) or _NO_EVIDENCE
     failure = CIFailure(failure_text=failure_text, environment=dict(environment or {}))
     result = analyze_failure(failure, incidents)
-    return result.model_copy(update={"performance_assessment": analyze_performance_failure(raw_log)})
+    return result.model_copy(update={"performance_assessment": analyze_performance_failure(log)})
 
 
 InvestigationOutcome = Literal[
@@ -78,13 +87,13 @@ def _clip(text: str, limit: int = MAX_EVIDENCE_CHARS) -> str:
 
 
 def _sanitized_lines(failure_text: str) -> list[str]:
-    """Drop credential-looking lines and volatile-only repeats of the same line."""
+    """Drop volatile-only repeats of the same line; credentials were already redacted."""
 
     lines: list[str] = []
     seen: set[str] = set()
     for line in failure_text.splitlines():
         key = normalize_volatile_text(line)
-        if contains_secret(line) or key in seen:
+        if key in seen:
             continue
         seen.add(key)
         lines.append(line)
@@ -212,10 +221,14 @@ def investigate_log(
     persisting it is left to the caller.
     """
 
+    # The ingestion boundary: only the redacted log is used below. A failed redaction raises
+    # RedactionError, so no fingerprint, LLM call, or draft is produced from the original.
+    log = redact_secrets(raw_log)
+    del raw_log
     incidents = analysis_incidents(team_incidents)
-    analysis = analyze_log(raw_log, incidents=incidents)
-    lines = _sanitized_lines(extract_failure_text(raw_log))
-    evidence = [_clip(line) for line in _sanitized_lines("\n".join(failure_evidence_lines(raw_log)))]
+    analysis = _analyze_redacted_log(log, incidents=incidents)
+    lines = _sanitized_lines(extract_failure_text(log))
+    evidence = [_clip(line) for line in _sanitized_lines("\n".join(failure_evidence_lines(log)))]
     evidence = evidence[:MAX_EVIDENCE_LINES]
     if not evidence:
         return Investigation(
@@ -227,7 +240,7 @@ def investigate_log(
     fingerprint = dedup_fingerprint(evidence)
     failure = CIFailure(failure_text="\n".join(lines))
     base = {"analysis": analysis, "evidence": evidence, "dedup_fingerprint": fingerprint}
-    known = _known_solution(failure, fingerprint, analysis, incidents, raw_log)
+    known = _known_solution(failure, fingerprint, analysis, incidents, log)
     if known is not None:
         return Investigation(outcome="known_solution", matched_incident=known[0], match_reason=known[1], **base)
     existing = _existing_record(evidence, fingerprint, analysis.category, team_incidents)
