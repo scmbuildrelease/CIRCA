@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -10,6 +11,17 @@ import typer
 
 from .analyzer import analyze_failure
 from .benchmark import BenchmarkMethodResult, load_evaluation_cases, run_retrieval_benchmark
+from .github_runs import (
+    MAX_RUN_LIMIT,
+    FailedRun,
+    GitHubRunError,
+    fetch_failed_log,
+    is_repository_url,
+    is_run_reference,
+    list_failed_runs,
+    parse_repository,
+    parse_run_reference,
+)
 from .hybrid import apply_hybrid_scoring
 from .knowledge import load_incidents
 from .knowledge_store import (
@@ -330,11 +342,89 @@ def _print_investigation(investigation: Investigation) -> None:
         typer.echo(f"Note: {note}", err=True)
 
 
+_RunLimit = Annotated[
+    int,
+    typer.Option(
+        "--limit", min=1, max=MAX_RUN_LIMIT, help=f"Number of recent failed runs to list (1-{MAX_RUN_LIMIT})."
+    ),
+]
+
+
+def _interactive() -> bool:
+    return sys.stdin.isatty() and sys.stderr.isatty()
+
+
+def _print_failed_runs(runs: list[FailedRun], numbered: bool = False) -> None:
+    # Printed to stderr when selecting, so --json output on stdout stays one JSON document.
+    for index, run in enumerate(runs, start=1):
+        prefix = f"{index:>2}. " if numbered else ""
+        fields = (run.run_id, run.workflow, run.branch, run.conclusion, run.created_at, run.url)
+        typer.echo(prefix + "\t".join(fields), err=numbered)
+
+
+def _select_run(repository: str, limit: int) -> tuple[str, str]:
+    """List the repository's failed runs, let the user pick one, and fetch its failed-step logs."""
+
+    try:
+        repository = parse_repository(repository)
+    except GitHubRunError as error:
+        raise _fail(error) from error
+    if not _interactive():
+        raise _fail(
+            GitHubRunError(
+                f"no run selected and no terminal to choose one; list runs with 'circa runs {repository}', "
+                f"then pass one: circa investigate-log RUN_ID --repo {repository}"
+            )
+        )
+    try:
+        runs = list_failed_runs(repository, limit)
+    except GitHubRunError as error:
+        raise _fail(error) from error
+    typer.echo(f"Recent failed runs in {repository} (run ID, workflow, branch, conclusion, created, URL):", err=True)
+    _print_failed_runs(runs, numbered=True)
+
+    def run_number(text: str) -> int:
+        if not text.strip().isdigit() or not 1 <= int(text) <= len(runs):
+            raise typer.BadParameter(f"enter a number from 1 to {len(runs)}")
+        return int(text)
+
+    choice = typer.prompt(f"Select a run [1-{len(runs)}]", value_proc=run_number, err=True)
+    return _read_log_source(runs[choice - 1].run_id, repository)
+
+
+def _read_log_source(log_source: str, repository: str | None) -> tuple[str, str]:
+    """Return the log text and its source name for a local file or a GitHub Actions run."""
+
+    if is_run_reference(log_source) and not Path(log_source).is_file():
+        try:
+            run = parse_run_reference(log_source, repository)
+            return fetch_failed_log(run), run.url
+        except GitHubRunError as error:
+            raise _fail(error) from error
+    if repository is not None and not Path(log_source).is_file():
+        raise _fail(GitHubRunError(f"'{log_source}' is neither a local file nor a numeric GitHub Actions run ID"))
+    if repository is not None:
+        raise _fail(GitHubRunError("--repo applies only to a GitHub Actions run ID"))
+    path = Path(log_source)
+    if not path.is_file():
+        raise typer.BadParameter(f"File '{log_source}' does not exist or is not a file.", param_hint="'LOG_SOURCE'")
+    try:
+        return path.read_text(encoding="utf-8"), path.name
+    except (OSError, UnicodeDecodeError) as error:
+        raise _fail(error) from error
+
+
 @app.command("investigate-log")
 def investigate_log_file(
-    raw_log_file: Annotated[
-        Path, typer.Argument(exists=True, dir_okay=False, readable=True, help="Path to a raw CI log file.")
-    ],
+    log_source: Annotated[
+        str | None,
+        typer.Argument(
+            help="A raw CI log file, a GitHub Actions run URL (https://github.com/OWNER/REPO/actions/runs/ID), "
+            "or a run ID with --repo. Runs are fetched with 'gh run view --log-failed'. Omit it (or pass "
+            "https://github.com/OWNER/REPO) to choose from the repository's recent failed runs in a terminal.",
+            show_default=False,
+        ),
+    ] = None,
     knowledge: Annotated[
         Path | None,
         typer.Option(
@@ -347,20 +437,34 @@ def investigate_log_file(
         bool, typer.Option("--synthetic", help="Mark any new draft as synthetic (demo or test data).")
     ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Print the investigation as JSON.")] = False,
+    repository: Annotated[
+        str | None,
+        typer.Option("--repo", help="OWNER/REPO for a numeric run ID, or to choose a failed run.", show_default=False),
+    ] = None,
+    limit: _RunLimit = 10,
 ) -> None:
-    """Investigate a raw CI log: verified history first, then the optional local LLM, then a draft."""
+    """Investigate a CI log or GitHub Actions run: verified history first, then the optional local LLM, then a draft."""
 
+    if log_source is not None and is_repository_url(log_source) and not Path(log_source).is_file():
+        try:
+            if repository is not None and parse_repository(log_source).lower() != parse_repository(repository).lower():
+                raise GitHubRunError(f"--repo {repository} does not match the repository URL {log_source}")
+        except GitHubRunError as error:
+            raise _fail(error) from error
+        log_source, repository = None, log_source
+    if log_source is None:
+        if repository is None:
+            raise typer.BadParameter("pass a log file, a run URL, or --repo OWNER/REPO.", param_hint="'LOG_SOURCE'")
+        raw_log, source_name = _select_run(repository, limit)
+    else:
+        raw_log, source_name = _read_log_source(log_source, repository)
     try:
         team = load_knowledge(knowledge, must_exist=False).incidents if knowledge is not None else []
     except KnowledgeError as error:
         raise _fail(error) from error
     # Generating a diagnosis takes longer than an explanation; an absent server still fails fast.
     investigation = investigate_log(
-        raw_log_file.read_text(encoding="utf-8"),
-        team,
-        OllamaProvider(timeout=60.0),
-        source_name=raw_log_file.name,
-        synthetic=synthetic,
+        raw_log, team, OllamaProvider(timeout=60.0), source_name=source_name, synthetic=synthetic
     )
     if json_output:
         typer.echo(investigation.model_dump_json(indent=2, exclude_none=True))
@@ -372,6 +476,26 @@ def investigate_log_file(
         typer.echo("Draft not saved: pass --knowledge PATH to keep new diagnoses for review.", err=True)
         return
     _save_draft(knowledge, investigation.draft)
+
+
+@app.command()
+def runs(
+    repository: Annotated[str, typer.Argument(help="OWNER/REPO or https://github.com/OWNER/REPO.")],
+    limit: _RunLimit = 10,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the runs as a JSON list.")] = False,
+) -> None:
+    """List a repository's recent failed GitHub Actions runs (via 'gh run list'); nothing is analyzed or saved."""
+
+    try:
+        failed = list_failed_runs(repository, limit)
+    except GitHubRunError as error:
+        raise _fail(error) from error
+    if json_output:
+        typer.echo(json.dumps([run.as_dict() for run in failed], indent=2))
+        return
+    typer.echo("RUN ID\tWORKFLOW\tBRANCH\tCONCLUSION\tCREATED\tURL")
+    _print_failed_runs(failed)
+    typer.echo(f"Investigate one with: circa investigate-log RUN_ID --repo {parse_repository(repository)}", err=True)
 
 
 @app.command()

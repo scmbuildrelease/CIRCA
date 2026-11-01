@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -771,3 +772,229 @@ def test_keyword_similarity_without_the_recorded_evidence_is_not_a_known_solutio
 
     assert report["outcome"] not in {"known_solution", "existing_record"}
     assert len(provider.prompts) == 1  # diagnosed, not answered with an unrelated verified fix
+
+
+GH_RUN_URL = "https://github.com/scmbuildrelease/CIRCA/actions/runs/39988949831"
+
+
+def _gh_returns(stdout: str, returncode: int = 0, stderr: str = ""):
+    completed = subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
+    return (
+        patch("circa.github_runs.shutil.which", return_value="/usr/bin/gh"),
+        patch("circa.github_runs.subprocess.run", return_value=completed),
+    )
+
+
+def test_run_url_reuses_verified_knowledge_without_the_llm(tmp_path: Path, monkeypatch) -> None:
+    path = _verified_ci_gate_incident(tmp_path)
+    before = path.read_bytes()
+    monkeypatch.chdir(tmp_path)
+    leftovers = set(tmp_path.iterdir())
+    provider = FakeProvider(_diagnosis())
+    # As in the real run, each failed step ends with GitHub's ##[error] line.
+    exit_line = "Type check (mypy)\tRun mypy\t2026-10-23T16:42:24.2360059Z ##[error]Process completed with exit code 1."
+    which, run = _gh_returns("\n".join([*CI_GATE_EVIDENCE, exit_line]) + "\n")
+
+    with which, run as gh:
+        result = _invoke(provider, GH_RUN_URL, "--knowledge", str(path), "--json")
+
+    report = json.loads(result.stdout)  # JSON output stays valid
+    assert result.exit_code == 0
+    assert gh.call_args.args[0][1:4] == ["run", "view", "39988949831"]
+    assert report["outcome"] == "known_solution"
+    assert report["matched_incident"]["id"] == "real-ci-gate-baseline-001"
+    assert provider.prompts == []
+    assert path.read_bytes() == before
+    assert set(tmp_path.iterdir()) == leftovers  # no temporary files left behind
+
+
+def test_run_id_with_repo_and_new_draft_records_the_run_url(tmp_path: Path) -> None:
+    path = tmp_path / "team.json"
+    which, run = _gh_returns(UNKNOWN_LOG.read_text())
+
+    with which, run:
+        result = _invoke(
+            FakeProvider(_diagnosis()), "39988949831", "--repo", "scmbuildrelease/CIRCA", *["--knowledge", str(path)]
+        )
+
+    assert result.exit_code == 0, result.output
+    [draft] = json.loads(path.read_text())
+    assert draft["status"] == "pending_review"
+    assert draft["draft_origin"]["source_log"] == GH_RUN_URL
+
+
+def test_github_errors_exit_nonzero_and_write_nothing(tmp_path: Path) -> None:
+    path = tmp_path / "team.json"
+    which, run = _gh_returns("", returncode=4, stderr="To get started with GitHub CLI, please run:  gh auth login")
+
+    with which, run:
+        unauthenticated = _invoke(FakeProvider(_diagnosis()), GH_RUN_URL, "--knowledge", str(path))
+    unsupported = _invoke(FakeProvider(_diagnosis()), "https://gitlab.com/a/b/-/pipelines/1")
+    missing_repo = _invoke(FakeProvider(_diagnosis()), "39988949831")
+    stray_repo = _invoke(FakeProvider(_diagnosis()), str(DISK_LOG), "--repo", "scmbuildrelease/CIRCA")
+
+    assert unauthenticated.exit_code == 1 and "not authenticated" in unauthenticated.output
+    assert unsupported.exit_code == 1 and "unsupported URL" in unsupported.output
+    assert missing_repo.exit_code == 1 and "needs --repo" in missing_repo.output
+    assert stray_repo.exit_code == 1 and "--repo applies only" in stray_repo.output
+    assert not path.exists()
+
+
+def test_local_files_still_win_over_run_references(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "39988949831").write_text(DISK_LOG.read_text())
+
+    with patch("circa.github_runs.subprocess.run") as gh:
+        by_name = _invoke(FakeProvider(_disk_diagnosis()), "39988949831", "--json")
+    missing = _invoke(FakeProvider(_diagnosis()), "missing.log")
+
+    gh.assert_not_called()
+    assert by_name.exit_code == 0 and json.loads(by_name.stdout)["evidence"]
+    assert missing.exit_code == 2 and "does not exist" in missing.output
+
+
+GH_RUN_LIST = json.dumps(
+    [
+        {
+            "databaseId": 39988949831,
+            "workflowName": "CI",
+            "headBranch": "main",
+            "conclusion": "failure",
+            "createdAt": "2026-10-23T16:42:04Z",
+            "url": GH_RUN_URL,
+            "displayTitle": "Add CI quality gate",
+        }
+    ]
+)
+CI_GATE_RUN_LOG = "\n".join(
+    [*CI_GATE_EVIDENCE, "Type check (mypy)\tRun mypy\t2026-10-23T16:42:24.2360059Z ##[error]Process completed."]
+)
+
+
+def _fake_gh(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+    stdout = GH_RUN_LIST if command[1:3] == ["run", "list"] else CI_GATE_RUN_LOG + "\n"
+    return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
+
+
+def _patched_gh():
+    return (
+        patch("circa.github_runs.shutil.which", return_value="/usr/bin/gh"),
+        patch("circa.github_runs.subprocess.run", side_effect=_fake_gh),
+    )
+
+
+def test_runs_lists_failed_runs_without_the_llm_or_knowledge() -> None:
+    which, run = _patched_gh()
+
+    with which, run as gh, patch("circa.cli.OllamaProvider") as provider:
+        text = runner.invoke(app, ["runs", "scmbuildrelease/CIRCA", "--limit", "5"])
+        as_json = runner.invoke(app, ["runs", "https://github.com/scmbuildrelease/CIRCA", "--json"])
+
+    assert text.exit_code == 0, text.output
+    assert "39988949831\tCI\tmain\tfailure\t2026-10-23T16:42:04Z\t" + GH_RUN_URL in text.stdout
+    assert "circa investigate-log RUN_ID --repo scmbuildrelease/CIRCA" in text.stderr
+    assert json.loads(as_json.stdout)[0]["run_id"] == "39988949831"
+    assert [call.args[0][1:3] for call in gh.call_args_list] == [["run", "list"], ["run", "list"]]
+    provider.assert_not_called()
+
+
+def test_runs_reports_errors_and_validates_the_limit() -> None:
+    with patch("circa.github_runs.shutil.which", return_value=None):
+        missing_gh = runner.invoke(app, ["runs", "scmbuildrelease/CIRCA"])
+    bad_limit = runner.invoke(app, ["runs", "scmbuildrelease/CIRCA", "--limit", "0"])
+
+    assert missing_gh.exit_code == 1 and "'gh' was not found" in missing_gh.output
+    assert bad_limit.exit_code == 2 and "--limit" in bad_limit.output
+
+
+def test_selecting_a_failed_run_interactively_reuses_the_investigation(tmp_path: Path, monkeypatch) -> None:
+    path = _verified_ci_gate_incident(tmp_path)
+    before = path.read_bytes()
+    monkeypatch.setattr("circa.cli._interactive", lambda: True)
+    provider = FakeProvider(_diagnosis())
+    which, run = _patched_gh()
+
+    with which, run as gh, patch("circa.cli.OllamaProvider", return_value=provider):
+        result = runner.invoke(
+            app,
+            ["investigate-log", "--repo", "scmbuildrelease/CIRCA", "--knowledge", str(path), "--json"],
+            input="7\n1\n",
+        )
+
+    assert result.exit_code == 0, result.output
+    # The run list and prompt go to stderr; CliRunner echoes the typed input to stdout, a terminal does not.
+    typed, _, report_text = result.stdout.partition("{")
+    assert typed.split() == ["7", "1"]
+    report = json.loads("{" + report_text)
+    assert report["outcome"] == "known_solution" and provider.prompts == []
+    assert "enter a number from 1 to 1" in result.stderr
+    assert [call.args[0][1:3] for call in gh.call_args_list] == [["run", "list"], ["run", "view"]]
+    assert gh.call_args.args[0][3] == "39988949831"
+    assert path.read_bytes() == before
+
+
+def test_repository_url_as_source_selects_from_that_repository(monkeypatch) -> None:
+    monkeypatch.setattr("circa.cli._interactive", lambda: True)
+    which, run = _patched_gh()
+
+    with which, run as gh, patch("circa.cli.OllamaProvider", return_value=FakeProvider(_diagnosis())):
+        result = runner.invoke(app, ["investigate-log", "https://github.com/scmbuildrelease/CIRCA"], input="1\n")
+    conflict = _invoke(FakeProvider(_diagnosis()), "https://github.com/scmbuildrelease/CIRCA", "--repo", "a/b")
+
+    assert result.exit_code == 0, result.output
+    assert gh.call_args_list[0].args[0][1:5] == ["run", "list", "--repo", "scmbuildrelease/CIRCA"]
+    assert conflict.exit_code == 1 and "does not match" in conflict.output
+
+
+def test_selection_without_a_terminal_fails_before_calling_github(tmp_path: Path) -> None:
+    path = tmp_path / "team.json"
+
+    with patch("circa.github_runs.subprocess.run") as gh:
+        no_terminal = _invoke(FakeProvider(_diagnosis()), "--repo", "scmbuildrelease/CIRCA", "--knowledge", str(path))
+        nothing = _invoke(FakeProvider(_diagnosis()))
+        bad_id = _invoke(FakeProvider(_diagnosis()), "abc", "--repo", "scmbuildrelease/CIRCA")
+
+    gh.assert_not_called()
+    assert no_terminal.exit_code == 1
+    assert "circa runs scmbuildrelease/CIRCA" in no_terminal.output
+    assert "circa investigate-log RUN_ID --repo scmbuildrelease/CIRCA" in no_terminal.output
+    assert nothing.exit_code == 2 and "pass a log file, a run URL" in nothing.output
+    assert bad_id.exit_code == 1 and "neither a local file nor a numeric" in bad_id.output
+    assert not path.exists()
+
+
+def test_repository_url_with_matching_repo_url_is_not_a_conflict(monkeypatch) -> None:
+    monkeypatch.setattr("circa.cli._interactive", lambda: True)
+    which, run = _patched_gh()
+    url = "https://github.com/scmbuildrelease/CIRCA"
+
+    with which, run, patch("circa.cli.OllamaProvider", return_value=FakeProvider(_diagnosis())):
+        same = runner.invoke(app, ["investigate-log", url, "--repo", url + ".git"], input="1\n")
+    invalid = _invoke(FakeProvider(_diagnosis()), url, "--repo", "scmbuildrelease/..")
+
+    assert same.exit_code == 0, same.output
+    assert invalid.exit_code == 1 and "OWNER/REPO" in invalid.output
+
+
+def test_selection_and_local_read_errors_exit_cleanly(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("circa.cli._interactive", lambda: True)
+    binary_log = tmp_path / "binary.log"
+    binary_log.write_bytes(b"ERROR: disk full \xff\xfe on /dev/sda1\n")
+    no_runs = subprocess.CompletedProcess(args=[], returncode=0, stdout="[]", stderr="")
+
+    with patch("circa.github_runs.subprocess.run") as gh:
+        bad_repo = _invoke(FakeProvider(_diagnosis()), "--repo", "not-a-repo")
+    gh.assert_not_called()
+    with (
+        patch("circa.github_runs.shutil.which", return_value="/usr/bin/gh"),
+        patch("circa.github_runs.subprocess.run", return_value=no_runs),
+    ):
+        empty = _invoke(FakeProvider(_diagnosis()), "--repo", "scmbuildrelease/CIRCA")
+    unreadable = _invoke(FakeProvider(_diagnosis()), str(binary_log))
+
+    assert bad_repo.exit_code == 1 and "OWNER/REPO" in bad_repo.output
+    assert empty.exit_code == 1 and "no failed workflow runs were found" in empty.output
+    assert unreadable.exit_code == 1 and "utf-8" in unreadable.output
+    assert all(
+        result.exception is None or isinstance(result.exception, SystemExit) for result in (bad_repo, empty, unreadable)
+    )

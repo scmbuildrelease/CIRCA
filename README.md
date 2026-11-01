@@ -278,6 +278,59 @@ that directly continues one (the next line, when it does not start its own
 timestamped, bracketed, or `LEVEL:` record), such as the second line of a
 multi-line error.
 
+### Investigating a GitHub Actions run
+
+`investigate-log` also accepts a GitHub Actions run URL, or a numeric run ID
+with `--repo OWNER/REPO`:
+
+```bash
+circa investigate-log https://github.com/scmbuildrelease/CIRCA/actions/runs/39988949831 \
+  --knowledge team/incidents.json --json
+circa investigate-log 39988949831 --repo scmbuildrelease/CIRCA --knowledge team/incidents.json
+```
+
+Prerequisites: the [GitHub CLI](https://cli.github.com) on `PATH`, logged in
+with `gh auth login` and able to read the repository's Actions logs. CIRCA runs
+`gh run view RUN_ID --repo OWNER/REPO --log-failed` without a shell and with
+prompts disabled. It strips color codes and passes the failed-step logs to the
+same pipeline as a local file. CIRCA never reads or prints the token. A new
+draft records the run URL as its `source_log`. Nothing is written to disk
+except a `pending_review` draft for a new diagnosis, as with a local file.
+
+The command exits 1 with a specific message when `gh` is missing or not logged
+in, the run or repository is not found or not accessible, the run has no
+failed-step logs (it succeeded, is still running, or its logs expired), `gh`
+fails or takes more than 120 seconds, or the URL is not a
+`https://github.com/OWNER/REPO/actions/runs/ID` URL. An existing local file
+always takes precedence over a run ID with the same name.
+
+To find a run without searching GitHub, list the repository's recent failed
+runs (`--limit` 1–100, default 10). This only lists runs: nothing is analyzed,
+no LLM is called, and no knowledge is read or written.
+
+```bash
+circa runs scmbuildrelease/CIRCA --limit 5
+circa runs https://github.com/scmbuildrelease/CIRCA --json
+```
+
+Each line shows the run ID, workflow, branch, conclusion, creation time, and
+URL. It comes from `gh run list --repo OWNER/REPO --status failure`, with the
+same prerequisites and error messages as above. A repository with no failed
+runs exits 1.
+
+To pick one and investigate it in a single step, pass the repository instead of
+a run. In a terminal, CIRCA lists the failed runs (on stderr, so `--json` output
+stays clean) and asks for a number:
+
+```bash
+circa investigate-log --repo scmbuildrelease/CIRCA --knowledge team/incidents.json
+circa investigate-log https://github.com/scmbuildrelease/CIRCA --limit 5
+```
+
+Without a terminal (scripts, CI), CIRCA does not prompt. It exits 1 before
+contacting GitHub and tells you to pass a run ID:
+`circa investigate-log RUN_ID --repo OWNER/REPO`.
+
 ### Piloting on real logs
 
 Evaluate diagnosis quality on sanitized real logs with the existing commands
