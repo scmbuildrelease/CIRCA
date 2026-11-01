@@ -226,6 +226,11 @@ jobs:
         run: |
           circa="$RUNNER_TEMP/wheel-venv/bin/circa"
           "$circa" --help
+          "$circa" --version
+          "$circa" doctor
+          # init twice: the second run must leave the created knowledge file unchanged.
+          "$circa" init --knowledge "$RUNNER_TEMP/smoke/team.json"
+          "$circa" init --knowledge "$RUNNER_TEMP/smoke/team.json"
           "$circa" analyze "$GITHUB_WORKSPACE/examples/hardware_failure.json"
           "$circa" analyze-log "$GITHUB_WORKSPACE/examples/demo_disk_full.log"
           "$circa" benchmark --top-k 3

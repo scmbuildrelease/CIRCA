@@ -93,7 +93,10 @@ def load_knowledge(path: str | Path, *, must_exist: bool = True) -> KnowledgeFil
     source = Path(path)
     if not source.exists():
         if must_exist:
-            raise KnowledgeError(f"knowledge file not found: {source}")
+            raise KnowledgeError(
+                f"knowledge file not found: {source} (looked for {source.resolve()}); "
+                f"create it with 'circa init --knowledge {source}' or pass the correct --knowledge PATH"
+            )
         return KnowledgeFile(source, [], None)
     data = source.read_bytes()
     try:

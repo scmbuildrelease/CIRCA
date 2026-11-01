@@ -67,6 +67,25 @@ class OllamaProvider:
         self.available = urlsplit(self.url).scheme in {"http", "https"}
         self.timeout = timeout
 
+    def installed_models(self) -> list[str] | None:
+        """Return the model names the server has installed (``GET /api/tags``), or ``None`` if unreachable.
+
+        Listing models runs no model, so it is safe for setup checks.
+        """
+
+        if not self.available:
+            return None
+        try:
+            # Bandit B310: __init__ restricts self.url to http(s).
+            with urlopen(Request(f"{self.url}/api/tags", method="GET"), timeout=self.timeout) as response:  # nosec B310
+                body = json.loads(response.read().decode("utf-8"))
+        except (OSError, HTTPException, URLError, ValueError):
+            return None
+        models = body.get("models") if isinstance(body, dict) else None
+        if not isinstance(models, list):
+            return None
+        return [str(model["name"]) for model in models if isinstance(model, dict) and model.get("name")]
+
     def explain(self, prompt: str) -> str | None:
         """Return Ollama's concise response, gracefully handling local failures."""
 

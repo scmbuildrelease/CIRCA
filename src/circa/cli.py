@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Annotated, Any
@@ -11,10 +12,12 @@ import typer
 
 from .analyzer import analyze_failure
 from .benchmark import BenchmarkMethodResult, load_evaluation_cases, run_retrieval_benchmark
+from .doctor import DEFAULT_KNOWLEDGE, Check, circa_version, run_checks
 from .github_runs import (
     MAX_RUN_LIMIT,
     FailedRun,
     GitHubRunError,
+    detect_repository,
     fetch_failed_log,
     is_repository_url,
     is_run_reference,
@@ -45,93 +48,134 @@ from .pipeline import Investigation, analyze_log, investigate_log
 from .resources import data_path
 from .semantic import OllamaEmbeddingProvider, SemanticIncidentRetriever
 
-app = typer.Typer(help="Analyze CI failures using local deterministic evidence.")
+# Terminal control sequences in CI logs (and other untrusted text) could recolor, retitle, or
+# rewrite the terminal. Human-readable output drops them; analysis input and --json output keep
+# the original text, since JSON escapes control characters.
+_TERMINAL_SEQUENCE = re.compile(
+    r"\x1b\[[0-?]*[ -/]*[@-~]"  # CSI: colors, cursor movement, erasing
+    r"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?"  # OSC: window title, hyperlinks, clipboard
+    r"|\x1b[PX^_][^\x1b]*(?:\x1b\\)?"  # DCS, SOS, PM, APC strings
+    r"|\x1b[ -/]*[0-~]"  # other escape sequences
+    r"|\x9b[0-?]*[ -/]*[@-~]"  # 8-bit CSI
+)
+# C0/C1 controls except tab and newline (a carriage return can overwrite a line), and bidi overrides.
+_UNSAFE_CHARACTER = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]")
+
+
+def safe_text(text: str) -> str:
+    """Return ``text`` without terminal control sequences, keeping printable Unicode, tabs, and newlines."""
+
+    return _UNSAFE_CHARACTER.sub("", _TERMINAL_SEQUENCE.sub("", text))
+
+
+def _echo(message: str = "", err: bool = False) -> None:
+    typer.echo(safe_text(message), err=err)
+
+
+app = typer.Typer(
+    help="Analyze CI failures using local deterministic evidence.",
+    epilog="Start here: circa doctor, then circa init. "
+    "Then: circa runs (list failed GitHub Actions runs), "
+    "circa investigate-log --knowledge team/incidents.json (choose one), "
+    "or circa investigate-log path/to/ci.log (a local log).",
+)
 knowledge_app = typer.Typer(help="Manage a human-reviewed team incident knowledge file.")
 app.add_typer(knowledge_app, name="knowledge")
 
 _HYBRID_FIELDS = {"llm_classification", "final_category", "final_confidence", "final_root_cause"}
 
 
+def _show_version(value: bool) -> None:
+    if value:
+        _echo(f"circa {circa_version()}")
+        raise typer.Exit()
+
+
 @app.callback()
-def main() -> None:
+def main(
+    show_version: Annotated[
+        bool,
+        typer.Option("--version", callback=_show_version, is_eager=True, help="Show the CIRCA version and exit."),
+    ] = False,
+) -> None:
     """CIRCA command group."""
 
 
 def _print_report(result: AnalysisResult, heading: str = "CIRCA Analysis Report") -> None:
     """Print one concise, human-readable analysis report."""
 
-    typer.echo(heading)
-    typer.echo(f"Category: {result.category}")
-    typer.echo(f"Confidence: {result.confidence:.2f}")
-    typer.echo(f"Root cause: {result.root_cause}")
-    typer.echo("Evidence:")
+    _echo(heading)
+    _echo(f"Category: {result.category}")
+    _echo(f"Confidence: {result.confidence:.2f}")
+    _echo(f"Root cause: {result.root_cause}")
+    _echo("Evidence:")
     if result.evidence:
         for item in result.evidence:
-            typer.echo(f"- {item}")
+            _echo(f"- {item}")
     else:
-        typer.echo("- No strong deterministic evidence.")
-    typer.echo("Historical matches:")
+        _echo("- No strong deterministic evidence.")
+    _echo("Historical matches:")
     if result.matched_incident_ids:
         for incident_id in result.matched_incident_ids:
-            typer.echo(f"- {incident_id}")
+            _echo(f"- {incident_id}")
     else:
-        typer.echo("- None")
-    typer.echo(f"Recommendation: {result.recommendation}")
-    typer.echo(f"Owner: {result.owner}")
-    typer.echo(f"Fingerprint: {result.fingerprint}")
+        _echo("- None")
+    _echo(f"Recommendation: {result.recommendation}")
+    _echo(f"Owner: {result.owner}")
+    _echo(f"Fingerprint: {result.fingerprint}")
     if result.llm_explanation:
-        typer.echo(f"LLM explanation: {result.llm_explanation}")
+        _echo(f"LLM explanation: {result.llm_explanation}")
     if result.performance_assessment:
         assessment = result.performance_assessment
-        typer.echo("Performance Assessment")
-        typer.echo(f"Failure type: {assessment.failure_type}")
-        typer.echo(f"Candidate cause (hypothesis): {assessment.candidate_cause}")
-        typer.echo(f"Recommended action: {assessment.recommended_action or 'none'}")
+        _echo("Performance Assessment")
+        _echo(f"Failure type: {assessment.failure_type}")
+        _echo(f"Candidate cause (hypothesis): {assessment.candidate_cause}")
+        _echo(f"Recommended action: {assessment.recommended_action or 'none'}")
         for measurement in assessment.measurements:
-            typer.echo(
+            _echo(
                 f"Measurement: {measurement.metric}={measurement.actual_value:g} {measurement.unit or ''} "
                 f"(expected {measurement.expected_range})"
             )
         if assessment.missing_evidence:
-            typer.echo("Missing performance evidence:")
+            _echo("Missing performance evidence:")
             for item in assessment.missing_evidence:
-                typer.echo(f"- {item}")
-        typer.echo(f"Performance recommendation: {assessment.recommendation}")
+                _echo(f"- {item}")
+        _echo(f"Performance recommendation: {assessment.recommendation}")
 
 
 def _print_llm_classification(classification: LLMClassification) -> None:
     """Print the independent LLM classification separately from deterministic output."""
 
-    typer.echo("LLM Classification")
-    typer.echo(f"Category: {classification.category}")
-    typer.echo(f"Confidence: {classification.confidence:.2f}")
-    typer.echo(f"Root Cause: {classification.root_cause}")
-    typer.echo("Evidence:")
+    _echo("LLM Classification")
+    _echo(f"Category: {classification.category}")
+    _echo(f"Confidence: {classification.confidence:.2f}")
+    _echo(f"Root Cause: {classification.root_cause}")
+    _echo("Evidence:")
     if classification.evidence:
         for item in classification.evidence:
-            typer.echo(f"- {item}")
+            _echo(f"- {item}")
     else:
-        typer.echo("- None")
+        _echo("- None")
 
 
 def _print_hybrid_analysis(result: AnalysisResult) -> None:
     """Print the final deterministic-first hybrid result."""
 
-    typer.echo("Final Hybrid Analysis")
-    typer.echo(f"Category: {result.final_category}")
-    typer.echo(f"Confidence: {result.final_confidence:.2f}")
-    typer.echo(f"Root Cause: {result.final_root_cause}")
+    _echo("Final Hybrid Analysis")
+    _echo(f"Category: {result.final_category}")
+    _echo(f"Confidence: {result.final_confidence:.2f}")
+    _echo(f"Root Cause: {result.final_root_cause}")
 
 
 def _print_semantic_matches(matches: list[SemanticIncidentMatch]) -> None:
     """Print ranked local semantic incident matches."""
 
-    typer.echo("Semantic Historical Matches")
+    _echo("Semantic Historical Matches")
     if not matches:
-        typer.echo("- None above the similarity threshold.")
+        _echo("- None above the similarity threshold.")
         return
     for match in matches:
-        typer.echo(f"- {match.incident.id}: {match.similarity:.2f}")
+        _echo(f"- {match.incident.id}: {match.similarity:.2f}")
 
 
 def _format_metric(value: float | None) -> str:
@@ -142,16 +186,14 @@ def _print_benchmark_method(method: BenchmarkMethodResult, top_k: int) -> None:
     """Print retrieval-only metrics and their documented denominators."""
 
     metrics = method.metrics
-    typer.echo(f"{method.name.title()} retrieval ({method.status})")
-    typer.echo(f"  evaluated: {metrics.evaluated_cases}; skipped: {metrics.skipped_cases}")
-    typer.echo(
-        f"  relevant-label cases: {metrics.relevant_cases}; no-known-relevance: {metrics.no_known_relevance_cases}"
-    )
-    typer.echo(f"  Top-1 accuracy (relevant-label cases): {_format_metric(metrics.top_1_accuracy)}")
-    typer.echo(f"  Recall@{top_k} (relevant-label cases): {_format_metric(metrics.recall_at_k)}")
-    typer.echo(f"  MRR (relevant-label cases): {_format_metric(metrics.mean_reciprocal_rank)}")
-    typer.echo(f"  no-result rate (evaluated cases): {_format_metric(metrics.no_result_rate)}")
-    typer.echo(f"  coverage (all dataset cases): {_format_metric(metrics.evaluation_coverage)}")
+    _echo(f"{method.name.title()} retrieval ({method.status})")
+    _echo(f"  evaluated: {metrics.evaluated_cases}; skipped: {metrics.skipped_cases}")
+    _echo(f"  relevant-label cases: {metrics.relevant_cases}; no-known-relevance: {metrics.no_known_relevance_cases}")
+    _echo(f"  Top-1 accuracy (relevant-label cases): {_format_metric(metrics.top_1_accuracy)}")
+    _echo(f"  Recall@{top_k} (relevant-label cases): {_format_metric(metrics.recall_at_k)}")
+    _echo(f"  MRR (relevant-label cases): {_format_metric(metrics.mean_reciprocal_rank)}")
+    _echo(f"  no-result rate (evaluated cases): {_format_metric(metrics.no_result_rate)}")
+    _echo(f"  coverage (all dataset cases): {_format_metric(metrics.evaluation_coverage)}")
 
 
 KnowledgeOption = Annotated[
@@ -174,7 +216,7 @@ def _analysis_incidents(knowledge: Path | None) -> list[HistoricalIncident] | No
     try:
         return load_analysis_incidents(knowledge)
     except KnowledgeError as error:
-        typer.echo(f"Error: {error}", err=True)
+        _echo(f"Error: {error}", err=True)
         raise typer.Exit(1) from error
 
 
@@ -205,9 +247,9 @@ def analyze(
         incidents = analysis_incidents or load_incidents(data_path("incidents.json"))
         semantic_matches = SemanticIncidentRetriever(OllamaEmbeddingProvider()).retrieve(failure, incidents)
     if llm_classify and classification is None:
-        typer.echo("Warning: LLM classification unavailable.", err=True)
+        _echo("Warning: LLM classification unavailable.", err=True)
     if semantic_retrieve and semantic_matches is None:
-        typer.echo("Warning: semantic retrieval unavailable.", err=True)
+        _echo("Warning: semantic retrieval unavailable.", err=True)
     if json_output:
         if llm_classify:
             payload: dict[str, Any] = {
@@ -234,12 +276,12 @@ def analyze(
         return
     _print_report(result, "Deterministic Analysis" if llm_classify else "CIRCA Analysis Report")
     if classification:
-        typer.echo()
+        _echo()
         _print_llm_classification(classification)
-        typer.echo()
+        _echo()
         _print_hybrid_analysis(result)
     if semantic_retrieve and semantic_matches is not None:
-        typer.echo()
+        _echo()
         _print_semantic_matches(semantic_matches)
 
 
@@ -262,33 +304,33 @@ def _print_incident(incident: HistoricalIncident) -> None:
     """Print a team incident's diagnosis, evidence, fix, and provenance for review."""
 
     provenance = "synthetic" if incident.synthetic else "real"
-    typer.echo(f"Incident {incident.id} ({incident.status}, {provenance}, {incident.category})")
-    typer.echo(f"Title: {incident.title}")
-    typer.echo(f"Root cause: {incident.root_cause or incident.summary}")
-    typer.echo("Evidence:")
+    _echo(f"Incident {incident.id} ({incident.status}, {provenance}, {incident.category})")
+    _echo(f"Title: {incident.title}")
+    _echo(f"Root cause: {incident.root_cause or incident.summary}")
+    _echo("Evidence:")
     for line in incident.evidence or ["None recorded."]:
-        typer.echo(f"- {line}")
+        _echo(f"- {line}")
     if incident.fix:
-        typer.echo(f"Fix: {incident.fix.description}")
-        typer.echo(f"Fix validation: {incident.fix.validation_status}")
+        _echo(f"Fix: {incident.fix.description}")
+        _echo(f"Fix validation: {incident.fix.validation_status}")
         if incident.fix.validation_method:
-            typer.echo(f"Validation evidence ({incident.fix.validation_method}): {incident.fix.validation_evidence}")
+            _echo(f"Validation evidence ({incident.fix.validation_method}): {incident.fix.validation_evidence}")
     else:
-        typer.echo(f"Recommendation: {incident.recommendation}")
+        _echo(f"Recommendation: {incident.recommendation}")
     if incident.reviewed_by:
-        typer.echo(f"Reviewed by: {incident.reviewed_by}")
+        _echo(f"Reviewed by: {incident.reviewed_by}")
     origin = incident.draft_origin
     if origin:
         model = origin.llm_model or "unknown model"
-        typer.echo(f"Origin: AI-generated hypothesis ({model}) from {origin.source_log}")
-        typer.echo(f"AI confidence: {origin.confidence:.2f}")
+        _echo(f"Origin: AI-generated hypothesis ({model}) from {origin.source_log}")
+        _echo(f"AI confidence: {origin.confidence:.2f}")
         for step in origin.validation_steps:
-            typer.echo(f"Validation step: {step}")
+            _echo(f"Validation step: {step}")
         for item in origin.missing_evidence:
-            typer.echo(f"Missing evidence: {item}")
-        typer.echo(f"Related incidents: {', '.join(origin.related_incident_ids) or 'none'}")
+            _echo(f"Missing evidence: {item}")
+        _echo(f"Related incidents: {', '.join(origin.related_incident_ids) or 'none'}")
         if origin.category_source:
-            typer.echo(f"Category source: {origin.category_source}")
+            _echo(f"Category source: {origin.category_source}")
 
 
 def _save_draft(path: Path, draft: dict[str, Any]) -> None:
@@ -299,47 +341,47 @@ def _save_draft(path: Path, draft: dict[str, Any]) -> None:
         incidents, incident, _ = add_incident(current, draft)
         save_knowledge(current, incidents)
     except DuplicateIncidentError as error:
-        typer.echo(f"Draft not saved: {error}", err=True)
+        _echo(f"Draft not saved: {error}", err=True)
         return
     except (KnowledgeError, OSError) as error:
         raise _fail(KnowledgeError(f"draft not saved: {error}")) from error
     # Status goes to stderr like other notes, so --json output stays parseable.
-    typer.echo(f"Draft saved: {incident.id} (pending_review) in {path}", err=True)
-    typer.echo(f"Review it: circa knowledge show {incident.id} --knowledge {path}", err=True)
+    _echo(f"Draft saved: {incident.id} (pending_review) in {path}", err=True)
+    _echo(f"Review it: circa knowledge show {incident.id} --knowledge {path}", err=True)
 
 
 def _print_investigation(investigation: Investigation) -> None:
     _print_report(investigation.analysis, "CIRCA Investigation")
-    typer.echo(f"Outcome: {investigation.outcome}")
-    typer.echo(f"LLM called: {'yes' if investigation.llm_called else 'no'}")
+    _echo(f"Outcome: {investigation.outcome}")
+    _echo(f"LLM called: {'yes' if investigation.llm_called else 'no'}")
     incident = investigation.matched_incident
     if investigation.outcome == "known_solution" and incident is not None:
-        typer.echo()
-        typer.echo(f"Known verified solution (matched by {investigation.match_reason}):")
+        _echo()
+        _echo(f"Known verified solution (matched by {investigation.match_reason}):")
         _print_incident(incident)
-        typer.echo("Note: the fix was validated for the recorded incident; confirm it applies to this environment.")
+        _echo("Note: the fix was validated for the recorded incident; confirm it applies to this environment.")
     elif incident is not None:
-        typer.echo()
-        typer.echo(f"Existing team record (matched by {investigation.match_reason}):")
+        _echo()
+        _echo(f"Existing team record (matched by {investigation.match_reason}):")
         _print_incident(incident)
     diagnosis = investigation.diagnosis
     if diagnosis is not None:
-        typer.echo()
-        typer.echo("AI diagnosis (hypothesis from the local LLM; not verified)")
-        typer.echo(f"Category: {diagnosis.category}")
-        typer.echo(f"Confidence: {diagnosis.confidence:.2f}")
-        typer.echo(f"Candidate root cause: {diagnosis.root_cause}")
-        typer.echo(f"Suggested fix: {diagnosis.suggested_fix or 'none'}")
+        _echo()
+        _echo("AI diagnosis (hypothesis from the local LLM; not verified)")
+        _echo(f"Category: {diagnosis.category}")
+        _echo(f"Confidence: {diagnosis.confidence:.2f}")
+        _echo(f"Candidate root cause: {diagnosis.root_cause}")
+        _echo(f"Suggested fix: {diagnosis.suggested_fix or 'none'}")
         for step in diagnosis.validation_steps:
-            typer.echo(f"Validation step: {step}")
+            _echo(f"Validation step: {step}")
         for item in diagnosis.missing_evidence:
-            typer.echo(f"Missing evidence: {item}")
+            _echo(f"Missing evidence: {item}")
     if investigation.evidence:
-        typer.echo("Observed log evidence:")
+        _echo("Observed log evidence:")
         for line in investigation.evidence:
-            typer.echo(f"- {line}")
+            _echo(f"- {line}")
     for note in investigation.notes:
-        typer.echo(f"Note: {note}", err=True)
+        _echo(f"Note: {note}", err=True)
 
 
 _RunLimit = Annotated[
@@ -359,7 +401,15 @@ def _print_failed_runs(runs: list[FailedRun], numbered: bool = False) -> None:
     for index, run in enumerate(runs, start=1):
         prefix = f"{index:>2}. " if numbered else ""
         fields = (run.run_id, run.workflow, run.branch, run.conclusion, run.created_at, run.url)
-        typer.echo(prefix + "\t".join(fields), err=numbered)
+        _echo(prefix + "\t".join(fields), err=numbered)
+
+
+def _detected_repository() -> str:
+    """Return the repository of the current Git checkout, saying which remote it came from."""
+
+    repository, remotes = detect_repository()
+    _echo(f"Using {repository} (from git remote {', '.join(remotes)}); pass OWNER/REPO to choose another.", err=True)
+    return repository
 
 
 def _select_run(repository: str, limit: int) -> tuple[str, str]:
@@ -380,7 +430,7 @@ def _select_run(repository: str, limit: int) -> tuple[str, str]:
         runs = list_failed_runs(repository, limit)
     except GitHubRunError as error:
         raise _fail(error) from error
-    typer.echo(f"Recent failed runs in {repository} (run ID, workflow, branch, conclusion, created, URL):", err=True)
+    _echo(f"Recent failed runs in {repository} (run ID, workflow, branch, conclusion, created, URL):", err=True)
     _print_failed_runs(runs, numbered=True)
 
     def run_number(text: str) -> int:
@@ -454,9 +504,19 @@ def investigate_log_file(
         log_source, repository = None, log_source
     if log_source is None:
         if repository is None:
-            raise typer.BadParameter("pass a log file, a run URL, or --repo OWNER/REPO.", param_hint="'LOG_SOURCE'")
+            try:
+                repository = _detected_repository()
+            except GitHubRunError as error:
+                raise typer.BadParameter(
+                    f"pass a log file, a run URL, or --repo OWNER/REPO ({error}).", param_hint="'LOG_SOURCE'"
+                ) from error
         raw_log, source_name = _select_run(repository, limit)
     else:
+        if repository is None and log_source.isascii() and log_source.isdigit() and not Path(log_source).is_file():
+            try:
+                repository = _detected_repository()
+            except GitHubRunError as error:
+                raise _fail(GitHubRunError(f"run ID {log_source} needs --repo OWNER/REPO: {error}")) from error
         raw_log, source_name = _read_log_source(log_source, repository)
     try:
         team = load_knowledge(knowledge, must_exist=False).incidents if knowledge is not None else []
@@ -473,29 +533,112 @@ def investigate_log_file(
     if investigation.draft is None:
         return
     if knowledge is None:
-        typer.echo("Draft not saved: pass --knowledge PATH to keep new diagnoses for review.", err=True)
+        _echo("Draft not saved: pass --knowledge PATH to keep new diagnoses for review.", err=True)
         return
     _save_draft(knowledge, investigation.draft)
 
 
 @app.command()
 def runs(
-    repository: Annotated[str, typer.Argument(help="OWNER/REPO or https://github.com/OWNER/REPO.")],
+    repository: Annotated[
+        str | None,
+        typer.Argument(
+            help="OWNER/REPO or https://github.com/OWNER/REPO; detected from the Git remote when omitted.",
+            show_default=False,
+        ),
+    ] = None,
     limit: _RunLimit = 10,
     json_output: Annotated[bool, typer.Option("--json", help="Print the runs as a JSON list.")] = False,
 ) -> None:
     """List a repository's recent failed GitHub Actions runs (via 'gh run list'); nothing is analyzed or saved."""
 
     try:
+        repository = repository or _detected_repository()
         failed = list_failed_runs(repository, limit)
     except GitHubRunError as error:
         raise _fail(error) from error
     if json_output:
         typer.echo(json.dumps([run.as_dict() for run in failed], indent=2))
         return
-    typer.echo("RUN ID\tWORKFLOW\tBRANCH\tCONCLUSION\tCREATED\tURL")
+    _echo("RUN ID\tWORKFLOW\tBRANCH\tCONCLUSION\tCREATED\tURL")
     _print_failed_runs(failed)
-    typer.echo(f"Investigate one with: circa investigate-log RUN_ID --repo {parse_repository(repository)}", err=True)
+    _echo(f"Investigate one with: circa investigate-log RUN_ID --repo {parse_repository(repository)}", err=True)
+
+
+_STATUS_LABEL = {"ok": "ok", "optional": "optional", "error": "ERROR"}
+
+
+def _print_checks(checks: list[Check]) -> None:
+    for check in checks:
+        _echo(f"{_STATUS_LABEL[check.status]:<9} {check.name}: {check.detail}")
+
+
+@app.command()
+def doctor(
+    knowledge: Annotated[
+        Path | None,
+        typer.Option("--knowledge", dir_okay=False, help="Team knowledge file to check.", show_default=False),
+    ] = None,
+) -> None:
+    """Check Python, Git, GitHub CLI login, the repository, the knowledge file, and Ollama. Changes nothing."""
+
+    checks = run_checks(knowledge)
+    _print_checks(checks)
+    if any(check.status == "error" for check in checks):
+        raise typer.Exit(1)
+    _echo("CIRCA is ready for local logs. Items marked optional are needed only for GitHub runs or AI drafts.")
+
+
+@app.command()
+def init(
+    knowledge: Annotated[
+        Path, typer.Option("--knowledge", dir_okay=False, help="Team knowledge file to create if it does not exist.")
+    ] = DEFAULT_KNOWLEDGE,
+) -> None:
+    """Check prerequisites and create an empty knowledge file if none exists. Safe to run again; never overwrites."""
+
+    created = False
+    if not knowledge.exists():
+        try:
+            knowledge.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            raise _fail(KnowledgeError(f"could not create {knowledge}: {error.strerror or error}")) from error
+        try:
+            # "x" mode fails rather than overwrite a file created in the meantime.
+            with knowledge.open("x", encoding="utf-8") as handle:
+                handle.write(serialize_incidents([]))
+            created = True
+        except FileExistsError:
+            pass
+        except OSError as error:
+            raise _fail(KnowledgeError(f"could not create {knowledge}: {error.strerror or error}")) from error
+    checks = run_checks(knowledge)
+    _print_checks(checks)
+    if created:
+        _echo(f"Created an empty knowledge file: {knowledge}")
+    else:
+        _echo(f"Using the existing knowledge file {knowledge}; it was not changed.")
+    if any(check.status == "error" for check in checks):
+        raise typer.Exit(1)
+    status = {check.name: check for check in checks}
+    repository = status["Repository"].detail.split()[0] if status["Repository"].status == "ok" else None
+    repo_argument = "" if repository else " OWNER/REPO"
+    repo_option = "" if repository else " --repo OWNER/REPO"
+    steps = [
+        ("List recent failed GitHub Actions runs:", f"circa runs{repo_argument}"),
+        (
+            "Choose one and investigate it (in a terminal):",
+            f"circa investigate-log{repo_option} --knowledge {knowledge}",
+        ),
+        ("Or investigate a local log file:", f"circa investigate-log path/to/ci.log --knowledge {knowledge}"),
+    ]
+    if status.get("GitHub login", status["GitHub CLI"]).status != "ok":
+        steps.insert(0, ("Log in to GitHub once (needed only for GitHub runs):", "gh auth login"))
+    _echo()
+    _echo("Next steps:")
+    for description, command in steps:
+        _echo(f"  {description}")
+        _echo(f"    {command}")
 
 
 @app.command()
@@ -512,9 +655,9 @@ def benchmark(
     report = run_retrieval_benchmark(
         cases, incidents, top_k=top_k, semantic_retriever=SemanticIncidentRetriever(OllamaEmbeddingProvider())
     )
-    typer.echo(f"CIRCA Retrieval Benchmark: {report.dataset_size} dataset cases; Top-K: {report.top_k}")
+    _echo(f"CIRCA Retrieval Benchmark: {report.dataset_size} dataset cases; Top-K: {report.top_k}")
     for method in report.methods:
-        typer.echo()
+        _echo()
         _print_benchmark_method(method, report.top_k)
 
 
@@ -528,7 +671,7 @@ AllowSimilarOption = Annotated[
 
 
 def _fail(error: Exception) -> typer.Exit:
-    typer.echo(f"Error: {error}", err=True)
+    _echo(f"Error: {error}", err=True)
     return typer.Exit(1)
 
 
@@ -547,16 +690,16 @@ def _confirm_and_save(
 ) -> None:
     """Show the exact record, require confirmation, then write atomically."""
 
-    typer.echo(f"{action} incident '{incident.id}' ({incident.status}) in {knowledge.path}:")
-    typer.echo(serialize_incidents([incident]).strip())
+    _echo(f"{action} incident '{incident.id}' ({incident.status}) in {knowledge.path}:")
+    _echo(serialize_incidents([incident]).strip())
     if not yes and not typer.confirm("Write this change?", default=False):
-        typer.echo("Aborted; nothing was written.", err=True)
+        _echo("Aborted; nothing was written.", err=True)
         raise typer.Exit(1)
     try:
         save_knowledge(knowledge, incidents)
     except KnowledgeError as error:
         raise _fail(error) from error
-    typer.echo(f"Wrote {knowledge.path}")
+    _echo(f"Wrote {knowledge.path}")
 
 
 @knowledge_app.command("add")
@@ -574,7 +717,7 @@ def knowledge_add(
     except KnowledgeError as error:
         raise _fail(error) from error
     for warning in warnings:
-        typer.echo(f"Warning: {warning}", err=True)
+        _echo(f"Warning: {warning}", err=True)
     _confirm_and_save(current, incidents, incident, "Add", yes)
 
 
@@ -593,7 +736,7 @@ def knowledge_update(
     except KnowledgeError as error:
         raise _fail(error) from error
     for warning in warnings:
-        typer.echo(f"Warning: {warning}", err=True)
+        _echo(f"Warning: {warning}", err=True)
     _confirm_and_save(current, incidents, incident, "Update", yes)
 
 
@@ -710,7 +853,7 @@ def knowledge_list(
         if pending and incident.status != "pending_review":
             continue
         provenance = "synthetic" if incident.synthetic else "real"
-        typer.echo(f"{incident.id}\t{incident.status}\t{provenance}\t{incident.title}")
+        _echo(f"{incident.id}\t{incident.status}\t{provenance}\t{incident.title}")
 
 
 @knowledge_app.command("validate")
@@ -727,4 +870,4 @@ def knowledge_validate(
         status: sum(item.status == status for item in current.incidents)
         for status in ("pending_review", "verified", "superseded", "rejected")
     }
-    typer.echo(f"{knowledge_json}: valid; " + ", ".join(f"{count} {status}" for status, count in counts.items()))
+    _echo(f"{knowledge_json}: valid; " + ", ".join(f"{count} {status}" for status, count in counts.items()))

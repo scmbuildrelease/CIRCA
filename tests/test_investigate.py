@@ -8,6 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from circa.cli import app
+from circa.github_runs import GitHubRunError
 from circa.knowledge_store import load_knowledge
 from circa.models import HistoricalIncident, LLMDiagnosis
 from circa.pipeline import analyze_log, investigate_log
@@ -824,7 +825,15 @@ def test_run_id_with_repo_and_new_draft_records_the_run_url(tmp_path: Path) -> N
     assert draft["draft_origin"]["source_log"] == GH_RUN_URL
 
 
-def test_github_errors_exit_nonzero_and_write_nothing(tmp_path: Path) -> None:
+def _outside_a_git_checkout(monkeypatch) -> None:
+    def no_repository():
+        raise GitHubRunError("not inside a Git repository, so the repository cannot be detected; pass OWNER/REPO")
+
+    monkeypatch.setattr("circa.cli.detect_repository", no_repository)
+
+
+def test_github_errors_exit_nonzero_and_write_nothing(tmp_path: Path, monkeypatch) -> None:
+    _outside_a_git_checkout(monkeypatch)
     path = tmp_path / "team.json"
     which, run = _gh_returns("", returncode=4, stderr="To get started with GitHub CLI, please run:  gh auth login")
 
@@ -949,7 +958,8 @@ def test_repository_url_as_source_selects_from_that_repository(monkeypatch) -> N
     assert conflict.exit_code == 1 and "does not match" in conflict.output
 
 
-def test_selection_without_a_terminal_fails_before_calling_github(tmp_path: Path) -> None:
+def test_selection_without_a_terminal_fails_before_calling_github(tmp_path: Path, monkeypatch) -> None:
+    _outside_a_git_checkout(monkeypatch)
     path = tmp_path / "team.json"
 
     with patch("circa.github_runs.subprocess.run") as gh:

@@ -196,3 +196,86 @@ def list_failed_runs(repository: str, limit: int = 10, timeout: float = GH_TIMEO
     if not runs:
         raise GitHubRunError(f"no failed workflow runs were found in {repository}")
     return runs
+
+
+_REMOTE_URL = re.compile(
+    r"^(?:https://(?:[^@/\s]+@)?github\.com/|git@github\.com:|ssh://git@github\.com(?::\d{1,5})?/)"
+    r"(?P<path>[^/\s]+/[^/\s]+?)(?:\.git)?/?$",
+    re.IGNORECASE,
+)
+_REMOTE_HOST = re.compile(r"^(?:[a-z+]+://)?(?:[^@/\s]+@)?(?P<host>[^:/\s]+)", re.IGNORECASE)
+
+
+def github_repository_from_remote(url: str) -> str | None:
+    """Return ``OWNER/REPO`` for a github.com remote URL (HTTPS, SSH, or scp-style), else ``None``."""
+
+    match = _REMOTE_URL.match(url.strip())
+    if match is None:
+        return None
+    try:
+        return parse_repository(match["path"])
+    except GitHubRunError:
+        return None
+
+
+def _remote_host(url: str) -> str:
+    # Only the host is ever shown: a remote URL may embed a username or token.
+    match = _REMOTE_HOST.match(url.strip())
+    return match["host"] if match else "unknown host"
+
+
+def detect_repository(directory: str | os.PathLike[str] | None = None) -> tuple[str, list[str]]:
+    """Return the GitHub ``OWNER/REPO`` of the current checkout and the remotes that name it.
+
+    Raises :class:`GitHubRunError` when Git is missing, the directory is not a Git
+    checkout, no remote points to github.com, or remotes name different repositories.
+    """
+
+    git = shutil.which("git")
+    if git is None:
+        raise GitHubRunError("Git was not found, so the repository cannot be detected; pass OWNER/REPO")
+    command = [git, "remote", "-v"] if directory is None else [git, "-C", os.fspath(directory), "remote", "-v"]
+    try:
+        completed = subprocess.run(  # nosec B603
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+            shell=False,
+            check=False,
+            env=os.environ | {"GIT_TERMINAL_PROMPT": "0"},
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise GitHubRunError(
+            f"could not run Git to detect the repository ({type(error).__name__}); pass OWNER/REPO"
+        ) from error
+    if completed.returncode != 0:
+        raise GitHubRunError("not inside a Git repository, so the repository cannot be detected; pass OWNER/REPO")
+    remotes: dict[str, str] = {}
+    for line in completed.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            remotes.setdefault(parts[0], parts[1])
+    if not remotes:
+        raise GitHubRunError("this Git repository has no remotes; pass OWNER/REPO")
+    found = {name: github_repository_from_remote(url) for name, url in remotes.items()}
+    github = {name: repository for name, repository in found.items() if repository is not None}
+    if not github:
+        hosts = ", ".join(f"{name} ({_remote_host(url)})" for name, url in remotes.items())
+        raise GitHubRunError(f"no Git remote points to github.com (remotes: {hosts}); CIRCA supports github.com only")
+    repositories = {repository.lower(): repository for repository in github.values()}
+    if len(repositories) > 1:
+        choices = ", ".join(f"{name} -> {repository}" for name, repository in github.items())
+        raise GitHubRunError(f"Git remotes name different GitHub repositories ({choices}); pass OWNER/REPO explicitly")
+    return next(iter(repositories.values())), sorted(github)
+
+
+def check_github_login(timeout: float = 15.0) -> None:
+    """Raise :class:`GitHubRunError` unless ``gh`` is installed and logged in to github.com.
+
+    Only the exit status is used; ``gh auth status`` output is never shown.
+    """
+
+    _gh(["auth", "status", "--hostname", "github.com"], "github.com", timeout)
