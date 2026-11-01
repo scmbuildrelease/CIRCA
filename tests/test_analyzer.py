@@ -340,7 +340,8 @@ def test_source_printed_in_a_ruff_diff_is_not_a_raised_error() -> None:
 
     result = _analyze(log)
 
-    assert not any("explicit" in line for line in result.evidence)
+    # The summary is a formatting failure (Phase 16B); the AssertionError inside the diff is not raised.
+    assert _explicit_kind(result) == "Failure text contains an explicit formatting check failure."
     assert "synthetic-software-assertion-003" not in result.matched_incident_ids
 
 
@@ -406,3 +407,171 @@ def test_an_unresolvable_host_still_marks_an_environment_error() -> None:
     log = "curl: (6) Could not resolve host: files.internal.example\nE       AssertionError: download missing\n"
 
     assert not any("explicit" in line for line in _analyze(log).evidence)
+
+
+# Phase 16B: quality-gate failures (lint, formatting, type checking, security, compiler, syntax).
+
+
+@pytest.mark.parametrize(
+    ("log", "kind", "detail"),
+    [
+        (
+            (
+                "src/net/socket.c:42:5: error: implicit declaration of function 'set_nonblocking'\n"
+                "make: *** [Makefile:12: all] Error 2\n"
+            ),
+            "compiler error",
+            "src/net/socket.c:42:5: error: implicit declaration of function 'set_nonblocking'",
+        ),
+        (
+            "main.cpp:3:10: fatal error: missing.h: No such file or directory\ncompilation terminated.\n",
+            "compiler error",
+            "main.cpp:3:10: fatal error: missing.h",
+        ),
+        (
+            (
+                'Traceback (most recent call last):\n  File "/build/run.py", line 2, in <module>\n'
+                "  File \"/build/tools/gen_config.py\", line 18\n    if mode = 'release':\n"
+                "SyntaxError: invalid syntax\n"
+            ),
+            "syntax error (SyntaxError)",
+            'File "/build/tools/gen_config.py", line 18; SyntaxError: invalid syntax',
+        ),
+        ("E     IndentationError: unexpected indent\n", "syntax error (SyntaxError)", "IndentationError"),
+        (
+            (
+                "src/circa/cli.py:167: error: Incompatible types in assignment  [assignment]\n"
+                "Found 1 error in 1 file (checked 17 source files)\n"
+            ),
+            "type-check failure (mypy)",
+            "src/circa/cli.py:167: error: Incompatible types in assignment",
+        ),
+        (
+            (
+                "src/app.py:1:1: I001 [*] Import block is un-sorted or un-formatted\nFound 1 error.\n"
+                "[*] 1 fixable with the `--fix` option.\n"
+            ),
+            "lint failure",
+            "src/app.py:1:1: I001 [*] Import block is un-sorted",
+        ),
+        ("I001 [*] Import block is un-sorted or un-formatted\nFound 3 errors.\n", "lint failure", ""),
+        (
+            "Would reformat: src/app.py\n2 files would be reformatted, 30 files already formatted\n",
+            "formatting check failure",
+            "2 files would be reformatted",
+        ),
+        (
+            "[warn] docs/guide.md\n[warn] Code style issues found in the above file. Run Prettier with --write to fix.\n",
+            "formatting check failure",
+            "Code style issues found in the above file",
+        ),
+        (
+            (
+                ">> Issue: [B310:blacklist] Audit url open for permitted schemes.\n   Severity: Medium   Confidence: High\n"
+                "   Location: src/circa/llm.py:46:17\n"
+            ),
+            "security scan finding (Bandit)",
+            "[B310:blacklist] Audit url open for permitted schemes.; Location: src/circa/llm.py:46:17",
+        ),
+    ],
+    ids=[
+        "gcc",
+        "missing-header",
+        "syntax",
+        "indentation",
+        "mypy",
+        "ruff-lint",
+        "ruff-lint-new-format",
+        "ruff-format",
+        "prettier",
+        "bandit",
+    ],
+)
+def test_quality_gate_failures_are_recognized_with_their_details(log: str, kind: str, detail: str) -> None:
+    result = _analyze(log)
+
+    assert result.category == "software" and result.owner == "developer"
+    assert _explicit_kind(result) == f"Failure text contains an explicit {kind}."
+    assert detail in result.root_cause
+
+
+@pytest.mark.parametrize(
+    "log",
+    [
+        "Run ruff check .\nRun mypy\nRun bandit -r src\nRun prettier --check .\n##[error]Process completed with exit code 1.\n",
+        (
+            "Success: no issues found in 21 source files\nAll checks passed!\n41 files already formatted\n"
+            "All matched files use Prettier code style!\nNo issues identified.\n##[error]Process completed with exit code 1.\n"
+        ),
+        "Found 0 errors.\n0 files would be reformatted\n##[error]Process completed with exit code 1.\n",
+        "/build/x.py:3: SyntaxWarning: invalid escape sequence '\\d'\n##[error]Process completed with exit code 1.\n",
+        "    except SyntaxError:\n##[error]Process completed with exit code 1.\n",
+        "error: mypy: can't read file 'missing.py': No such file or directory\n",
+    ],
+    ids=["tool-names", "success-summaries", "zero-counts", "syntax-warning", "except-clause", "mypy-usage-error"],
+)
+def test_tool_names_success_output_and_warnings_are_not_quality_gate_failures(log: str) -> None:
+    result = _analyze(log)
+
+    assert result.category == "unknown"
+    assert not any("explicit" in line for line in result.evidence)
+
+
+def test_a_compiler_killed_for_memory_is_not_a_compiler_error() -> None:
+    result = _analyze("c++: fatal error: Killed signal terminated program cc1plus\ncompilation terminated.\n")
+
+    assert not any("explicit" in line for line in result.evidence)
+
+
+def test_runtime_failures_outrank_static_checks_in_the_same_log() -> None:
+    log = (
+        "src/a.py:3: error: Incompatible return value type  [return-value]\n"
+        "Found 1 error in 1 file (checked 4 source files)\n"
+        "E   ModuleNotFoundError: No module named 'yaml'\n"
+    )
+
+    assert _explicit_kind(_analyze(log)) == "Failure text contains an explicit missing module (ModuleNotFoundError)."
+
+
+def test_an_environment_error_still_takes_precedence_over_a_quality_gate_summary() -> None:
+    log = (
+        "OSError: [Errno 28] No space left on device\nworker disk full while writing compiler output\nFound 2 errors.\n"
+    )
+
+    assert _analyze(log).category == "hardware"
+
+
+def test_bandit_code_snippets_are_not_failure_evidence() -> None:
+    gh = "Security (Bandit)\tRun Bandit\t2026-10-23T16:42:13.8758687Z "
+    log = "\n".join(
+        gh + line
+        for line in [
+            ">> Issue: [B310:blacklist] Audit url open for permitted schemes.",
+            "   Severity: Medium   Confidence: High",
+            "   Location: src/circa/llm.py:46:17",
+            "45\t        try:",
+            "46\t            with urlopen(request, timeout=self.timeout) as response:",
+            "",
+            "##[error]Process completed with exit code 1.",
+        ]
+    )
+
+    result = _analyze(log)
+
+    # "timeout" in the printed source must not trigger the network fallback.
+    assert result.category == "software"
+    assert _explicit_kind(result) == "Failure text contains an explicit security scan finding (Bandit)."
+
+
+def test_a_verified_incident_naming_the_tool_supplies_the_root_cause() -> None:
+    team = _verified(
+        "team-ruff-format-001",
+        ["ruff", "reformatted", "quality", "gate"],
+        "The quality gate was enabled before the code was formatted.",
+    )
+
+    result = _analyze(
+        "12 files would be reformatted, 22 files already formatted\nquality gate failed\n", [*INCIDENTS, team]
+    )
+
+    assert result.root_cause == "The quality gate was enabled before the code was formatted."

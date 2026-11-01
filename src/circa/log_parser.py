@@ -6,7 +6,10 @@ import re
 
 _FAILURE_SIGNAL = re.compile(
     r"\b(?:\w*error|failed|failure|\w*exception|traceback|timeout|threshold violation|"
-    r"connection refused|no space left|out of memory|oom|segmentation fault)\b|\bnpm ERR!",
+    r"connection refused|no space left|out of memory|oom|segmentation fault)\b|\bnpm ERR!"
+    # Quality-gate summaries that state a failure without the word "error".
+    r"|\b[1-9]\d* files? would be reformatted\b|\bwould reformat\b|\bcode style issues found\b|>> Issue: \[B\d{3}:"
+    r"|\bfound [1-9]\d* errors?\b|\S\.\w+:\d+:\d+: [A-Z]{1,3}\d{3,4}\b",
     re.IGNORECASE,
 )
 # A line that starts its own log record (timestamp, clock time, bracketed tag, or LEVEL:).
@@ -15,6 +18,9 @@ _REPEATED_PREFIX = re.compile(r"^(?:\[[^\]]+\]\s*)?(?:info|debug|notice)\b", re.
 # `gh run view --log` adds "job<TAB>step<TAB>" and a timestamp before each line's own text.
 _LOG_PREFIX = re.compile(r"^(?:[^\t]*\t[^\t]*\t)?\ufeff?(?:\d{4}-\d{2}-\d{2}T\S+(?: |$))?")
 _HUNK_HEADER = re.compile(r"@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@")
+# Bandit prints each finding's source after its location, as "<line number><TAB><code>".
+_BANDIT_LOCATION = re.compile(r"^\s*Location: \S+:\d+:\d+")
+_NUMBERED_SOURCE = re.compile(r"^\d+\t")
 
 
 def has_failure_signal(line: str) -> bool:
@@ -50,21 +56,26 @@ def failure_evidence_lines(raw_log: str) -> list[str]:
     return list(dict.fromkeys(selected))
 
 
-def _diff_lines(raw_lines: list[str]) -> list[bool]:
-    """Mark unified-diff headers and hunk lines: source text a tool printed (``ruff format --diff``), not log output."""
+def _printed_source_lines(raw_lines: list[str]) -> list[bool]:
+    """Mark source text a tool printed, not log output.
+
+    That is unified-diff headers and hunks (``ruff format --diff``) and the numbered code
+    snippet Bandit prints after each finding's location.
+    """
 
     texts = [_LOG_PREFIX.sub("", line, count=1) for line in raw_lines]
     marks = [False] * len(texts)
-    in_hunk = False
+    in_hunk = in_snippet = False
     for index, text in enumerate(texts):
         if _HUNK_HEADER.match(text):
             in_hunk = marks[index] = True
         elif text.startswith("--- ") and index + 1 < len(texts) and texts[index + 1].startswith("+++ "):
             in_hunk, marks[index], marks[index + 1] = False, True, True
-        elif in_hunk and (not text or text[0] in " +-"):
+        elif in_hunk and (not text or text[0] in " +-") or in_snippet and _NUMBERED_SOURCE.match(text):
             marks[index] = True
         elif not marks[index]:
             in_hunk = False
+            in_snippet = _BANDIT_LOCATION.match(text) is not None
     return marks
 
 
@@ -76,10 +87,12 @@ def extract_failure_text(raw_log: str, context_before: int = 1, context_after: i
     are omitted to avoid carrying noisy progress output into a ``CIFailure``.
     """
 
-    # Diff content is excluded: an error name in printed source code is not an error that occurred.
+    # Printed source is excluded: an error name or "timeout" in source code is not something that occurred.
     raw_lines = raw_log.splitlines()
     lines = [
-        line.strip() for line, diff in zip(raw_lines, _diff_lines(raw_lines), strict=True) if line.strip() and not diff
+        line.strip()
+        for line, source in zip(raw_lines, _printed_source_lines(raw_lines), strict=True)
+        if line.strip() and not source
     ]
     failure_indexes = [index for index, line in enumerate(lines) if _FAILURE_SIGNAL.search(line)]
     if not failure_indexes:

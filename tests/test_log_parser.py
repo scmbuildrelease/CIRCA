@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from circa.log_parser import extract_failure_text, failure_evidence_lines
+from circa.log_parser import extract_failure_text, failure_evidence_lines, has_failure_signal
 
 
 def test_extracts_clear_failure_from_large_log() -> None:
@@ -149,3 +149,35 @@ def test_npm_errors_are_failure_evidence() -> None:
 
     assert "npm ERR! code ERESOLVE" in extract_failure_text(log)
     assert "npm ERR! code ERESOLVE" in failure_evidence_lines(log)
+
+
+def test_quality_gate_summaries_are_failure_evidence() -> None:
+    log = (
+        "0 files would be reformatted\n"
+        "12 files would be reformatted, 22 files already formatted\n"
+        "[warn] Code style issues found in 3 files. Run Prettier with --write to fix.\n"
+        ">> Issue: [B310:blacklist] Audit url open for permitted schemes.\n"
+        "Found 3 errors.\n"
+    )
+
+    lines = failure_evidence_lines(log)
+
+    assert len(lines) == 4 and "0 files would be reformatted" not in lines
+
+
+def test_bandit_numbered_source_is_excluded_but_other_numbered_lines_are_kept() -> None:
+    log = (
+        "   Location: src/circa/llm.py:46:17\n45\t        try:\n46\t            raise TimeoutError()\n\n"
+        "12\tERROR: worker failed\n"
+    )
+
+    extracted = extract_failure_text(log)
+
+    assert "TimeoutError" not in extracted
+    assert "12\tERROR: worker failed" in extracted
+
+
+def test_lint_rule_lines_are_failure_signals_but_plain_locations_are_not() -> None:
+    assert has_failure_signal("src/app/views.py:14:5: F841 Local variable `result` is assigned to but never used")
+    assert not has_failure_signal("src/app/views.py:14:5: checked")
+    assert not has_failure_signal("version 3.12.1: F841 in docs")

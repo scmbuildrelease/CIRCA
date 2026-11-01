@@ -1,0 +1,92 @@
+{
+  "description": "Phase 16B quality-gate recognition cases: positives in forms not covered by cases.json, and negatives (tool names, success output, warnings) that must not be classified as quality-gate failures. Evaluation data only; never knowledge. Run with: circa evaluate --dataset evaluation/quality_gate_cases.json",
+  "labeling_conventions": "Same conventions as cases.json. All cases are synthetic, so their labels are confirmed by construction.",
+  "cases": [
+    {
+      "id": "qg-pos-black-format",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Run black --check .\nwould reformat /build/src/app/models.py\nOh no! 💥 💔 💥\n1 file would be reformatted, 48 files would be left unchanged.\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["format"],
+      "label_note": "Synthetic: Black check found an unformatted file."
+    },
+    {
+      "id": "qg-pos-clang-error",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "[ 42%] Building CXX object src/CMakeFiles/core.dir/parser.cpp.o\n/build/src/parser.cpp:118:21: error: no member named 'tokenize' in 'Lexer'\n    auto tokens = lexer.tokenize(input);\n                  ~~~~~ ^\n1 error generated.\nmake[2]: *** [src/CMakeFiles/core.dir/build.make:90: src/CMakeFiles/core.dir/parser.cpp.o] Error 1\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["parser.cpp"],
+      "label_note": "Synthetic: clang compile error in a changed file."
+    },
+    {
+      "id": "qg-pos-ruff-lint-concise",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Run ruff check --output-format=concise .\nsrc/app/views.py:14:5: F841 Local variable `result` is assigned to but never used\nsrc/app/views.py:30:1: E402 Module level import not at top of file\nFound 2 errors.\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["F841"],
+      "label_note": "Synthetic: Ruff lint violations in concise output."
+    },
+    {
+      "id": "qg-pos-indentation-error",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "==================================== ERRORS ====================================\n_______________________ ERROR collecting tests/test_api.py _______________________\nE     File \"/build/tests/test_api.py\", line 27\nE       return response\nE   IndentationError: unexpected indent\n=========================== short test summary info ============================\nERROR tests/test_api.py\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["syntax", "test_api.py"],
+      "label_note": "Synthetic: pytest collection fails on an indentation error."
+    },
+    {
+      "id": "qg-pos-mypy-summary-only",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Run mypy\nFound 4 errors in 2 files (checked 31 source files)\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["type"],
+      "label_note": "Synthetic: only mypy's summary line is in the log."
+    },
+    {
+      "id": "qg-neg-tool-names-only",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Run ruff check .\nRun ruff format --check .\nRun mypy\nRun bandit -c pyproject.toml -r src\nRun npx prettier --check .\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "unknown",
+      "label_note": "Synthetic negative: tool names in step headers, no failure output."
+    },
+    {
+      "id": "qg-neg-success-output",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "All checks passed!\n34 files already formatted\nSuccess: no issues found in 21 source files\nAll matched files use Prettier code style!\nTest results:\n\tNo issues identified.\nRun ./scripts/publish.sh\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "unknown",
+      "label_note": "Synthetic negative: every quality gate passed; the failing step printed nothing."
+    },
+    {
+      "id": "qg-neg-syntax-warning",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "/build/src/app/patterns.py:12: SyntaxWarning: invalid escape sequence '\\d'\n  DIGITS = re.compile('\\d+')\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "unknown",
+      "label_note": "Synthetic negative: a warning, not the cause of the failure."
+    },
+    {
+      "id": "qg-neg-compiler-oom",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "[ 87%] Building CXX object src/CMakeFiles/engine.dir/solver.cpp.o\nc++: fatal error: Killed signal terminated program cc1plus\ncompilation terminated.\n",
+      "expected_category": "hardware",
+      "label_note": "Synthetic negative for the compiler recognizer: the compiler was OOM-killed; it is not a source error."
+    },
+    {
+      "id": "qg-neg-pytest-mentions-mypy",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "tests/test_config.py::test_mypy_flags FAILED\nE       AssertionError: expected '--strict' in mypy args\nFAILED tests/test_config.py::test_mypy_flags - AssertionError: expected '--strict' in mypy args\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["assertion"],
+      "label_note": "Synthetic negative for the mypy recognizer: a test failure that mentions mypy."
+    }
+  ]
+}

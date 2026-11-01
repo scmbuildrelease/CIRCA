@@ -49,6 +49,10 @@ class _ExplicitError:
     cause_tokens: frozenset[str]
     root_cause: str
     recommendation: str
+    # Where and what was reported (file, line, message), appended to the root cause when found.
+    details: tuple[re.Pattern[str], ...] = ()
+    # Some tools print their failing summary at an informational level (Prettier uses "[warn]").
+    any_level: bool = False
 
 
 # Ordered by pipeline stage: a dependency or import problem stops the code before
@@ -64,6 +68,28 @@ _EXPLICIT_ERRORS = (
         frozenset({"resolutionimpossible", "eresolve", "etarget"}),
         "Dependency installation failed: the package manager could not install a required package or version.",
         "Check the requirement's name, version pin, and package index, and reproduce the install locally.",
+    ),
+    _ExplicitError(
+        "compiler error",
+        re.compile(r"\S+\.(?:c|cc|cpp|cxx|h|hh|hpp|m|mm):\d+:\d+: (?:fatal )?error: "),
+        frozenset({"gcc", "clang"}),
+        frozenset({"gcc", "clang"}),
+        "Compilation failed: the compiler reported an error in the source.",
+        "Fix the first reported compiler error; later errors are often consequences of it.",
+        (re.compile(r"\S+\.(?:c|cc|cpp|cxx|h|hh|hpp|m|mm):\d+:\d+: (?:fatal )?error: [^\n]*"),),
+    ),
+    _ExplicitError(
+        "syntax error (SyntaxError)",
+        re.compile(r"(?<!except )\b(?:SyntaxError|IndentationError|TabError): "),
+        frozenset({"syntaxerror", "indentationerror", "taberror"}),
+        frozenset({"syntaxerror", "indentationerror", "taberror"}),
+        "The code could not be parsed (SyntaxError).",
+        "Fix the syntax at the reported file and line, and run the code or its tests locally.",
+        # The last traceback frame is the file that failed to parse.
+        (
+            re.compile(r'File "[^"\n]+", line \d+(?![\s\S]*File ")'),
+            re.compile(r"\b(?:SyntaxError|IndentationError|TabError): [^\n]*"),
+        ),
     ),
     _ExplicitError(
         "missing module (ModuleNotFoundError)",
@@ -89,6 +115,47 @@ _EXPLICIT_ERRORS = (
         frozenset({"assertion", "assertionerror"}),
         "A test assertion failed (AssertionError): the code under test did not produce the expected result.",
         "Inspect the first failing test's assertion and the change under test, and reproduce it locally.",
+    ),
+    # Static checks: summaries and error signatures that only these tools print, never their names alone.
+    _ExplicitError(
+        "type-check failure (mypy)",
+        re.compile(
+            r"\bFound [1-9]\d* errors? in \d+ files? \(checked \d+ source files?\)"
+            r"|\S+\.pyi?:\d+: error: .*\[[a-z][a-z-]*\]\s*$"
+        ),
+        frozenset({"mypy"}),
+        frozenset({"mypy"}),
+        "Type checking failed (mypy): the code has type errors.",
+        "Fix the reported type errors and rerun mypy locally.",
+        (re.compile(r"\S+\.pyi?:\d+: error: [^\n]*"),),
+    ),
+    _ExplicitError(
+        "lint failure",
+        re.compile(r"\bFound [1-9]\d* errors?\.(?:\s|$)|\[\*\] \d+ fixable with\b"),
+        frozenset({"ruff"}),
+        frozenset({"ruff"}),
+        "The linter reported rule violations.",
+        "Fix the reported violations, or apply the linter's safe fixes, and rerun it locally.",
+        (re.compile(r"\S+\.\w+:\d+:\d+: [A-Z]+\d+ [^\n]*"),),
+    ),
+    _ExplicitError(
+        "formatting check failure",
+        re.compile(r"\b[1-9]\d* files? would be reformatted\b|\b[Ww]ould reformat:? \S|\bCode style issues found in\b"),
+        frozenset({"prettier", "ruff"}),
+        frozenset({"prettier", "ruff"}),
+        "A formatting check failed: files are not formatted as the project's formatter requires.",
+        "Run the project's formatter (for example `ruff format` or `prettier --write`) and commit the result.",
+        (re.compile(r"\b[1-9]\d* files? would be reformatted[^\n]*|\bCode style issues found in[^\n]*"),),
+        any_level=True,
+    ),
+    _ExplicitError(
+        "security scan finding (Bandit)",
+        re.compile(r">> Issue: \[B\d{3}:\w+\]"),
+        frozenset({"bandit"}),
+        frozenset({"bandit"}),
+        "The security scanner (Bandit) reported findings that fail the build.",
+        "Review each reported issue: fix it, or add a narrow, justified suppression.",
+        (re.compile(r"\[B\d{3}:\w+\][^\n]*"), re.compile(r"Location: \S+:\d+:\d+")),
     ),
 )
 # Pipeline stages a historical root cause can place a failure in. A root cause claiming a stage the
@@ -117,7 +184,8 @@ _NON_FAILURE_LEVEL = re.compile(
     r"^(?:[^\t]*\t[^\t]*\t)?\ufeff?(?:\S*\d{2}:\d{2}:\d{2}\S*\s+)?(?:##)?\[?(?:WARNING|WARN|INFO|DEBUG|NOTICE)\b",
     re.IGNORECASE,
 )
-_TEST_FAILURE = _EXPLICIT_ERRORS[-1]
+_TEST_FAILURE = next(error for error in _EXPLICIT_ERRORS if error.kind.startswith("test assertion"))
+_DETAIL_LIMIT = 160
 
 
 def _explicit_error(failure_text: str) -> _ExplicitError | None:
@@ -130,6 +198,7 @@ def _explicit_error(failure_text: str) -> _ExplicitError | None:
     found: set[str] = set()
     for line in failure_text.splitlines():
         if _NON_FAILURE_LEVEL.match(line):
+            found.update(error.kind for error in _EXPLICIT_ERRORS if error.any_level and error.pattern.search(line))
             continue
         if _TEST_FAILURE.pattern.search(line):
             found.add(_TEST_FAILURE.kind)
@@ -138,6 +207,13 @@ def _explicit_error(failure_text: str) -> _ExplicitError | None:
         if error is not None:
             found.add(error.kind)
     return next((error for error in _EXPLICIT_ERRORS if error.kind in found), None)
+
+
+def _reported_details(failure_text: str, error: _ExplicitError) -> str:
+    """The first file, line, and message the tool reported, as one clipped string ("" if none)."""
+
+    found = (pattern.search(failure_text) for pattern in error.details)
+    return "; ".join(match.group(0).strip()[:_DETAIL_LIMIT] for match in found if match)
 
 
 def _contradicts(incident: HistoricalIncident, error: _ExplicitError) -> bool:
@@ -295,6 +371,9 @@ def _explicit_result(
         for match in consistent
     ]
     evidence.append(f"Failure text contains an explicit {error.kind}.")
+    details = _reported_details(failure.failure_text, error)
+    if details:
+        evidence.append(f"Reported: {details}")
     direct = failure_tokens & _CATEGORY_KEYWORDS["software"]
     if direct:
         evidence.append(f"Failure text contains {', '.join(sorted(direct))}.")
@@ -311,6 +390,8 @@ def _explicit_result(
         root_cause, recommendation = source.root_cause or source.summary, source.recommendation
     else:
         root_cause, recommendation = error.root_cause, error.recommendation
+        if details:
+            root_cause = f"{root_cause} First reported: {details}"
     score = _EXPLICIT_ERROR_WEIGHT + sum(overlap.values()) + 0.25 * len(direct)
     return AnalysisResult(
         fingerprint=failure_fingerprint(failure),
