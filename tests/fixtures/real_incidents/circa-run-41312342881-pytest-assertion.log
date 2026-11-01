@@ -1,0 +1,91 @@
+Tests (Python 3.12)	Run pytest with coverage	﻿2026-11-01T13:40:03.9850991Z ##[group]Run python -m pytest --cov --cov-report=term-missing
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9851398Z [36;1mpython -m pytest --cov --cov-report=term-missing[0m
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9880031Z shell: /usr/bin/bash -e {0}
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9880243Z env:
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9880421Z   PIP_DISABLE_PIP_VERSION_CHECK: 1
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9880639Z   PYTHON_VERSION: 3.12
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9880877Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9881249Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9881612Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9881916Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9882215Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9882554Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:03.9882886Z ##[endgroup]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.3759787Z ============================= test session starts ==============================
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.3760728Z platform linux -- Python 3.12.15, pytest-9.2.0, pluggy-1.7.0
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.3761051Z rootdir: /home/runner/work/CIRCA/CIRCA
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.3761294Z configfile: pyproject.toml
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.3761483Z testpaths: tests
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.3761650Z plugins: cov-7.1.0
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.3761817Z collected 313 items
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.3761921Z
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.3805252Z tests/test_analyzer.py ..                                                [  0%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:05.4480174Z tests/test_benchmark.py ............                                     [  4%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:06.1905068Z tests/test_cli.py ....................                                   [ 10%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:06.1950750Z tests/test_demo_examples.py ..                                           [ 11%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:06.2053379Z tests/test_fingerprint.py ............                                   [ 15%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:06.2704729Z tests/test_github_runs.py .............................................. [ 30%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:06.2718005Z .                                                                        [ 30%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:06.2762541Z tests/test_hybrid.py ......                                              [ 32%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:07.7380522Z tests/test_investigate.py .............................................. [ 46%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:08.7675076Z ......F.....                                                             [ 50%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:08.7728830Z tests/test_knowledge.py ...                                              [ 51%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:08.8319478Z tests/test_knowledge_store.py .......................................... [ 65%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.0038864Z ..................                                                       [ 70%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.0774245Z tests/test_llm.py .................................................      [ 86%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.0841225Z tests/test_log_parser.py .........                                       [ 89%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.0853499Z tests/test_models.py .                                                   [ 89%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.0970636Z tests/test_performance.py ............                                   [ 93%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.1015719Z tests/test_pipeline.py ..                                                [ 94%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.1042092Z tests/test_prompts.py ...                                                [ 95%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.1107747Z tests/test_retrieval.py ......                                           [ 97%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4190416Z tests/test_semantic.py .........                                         [100%]
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4190894Z
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4191061Z =================================== FAILURES ===================================
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4191502Z _______________ test_runs_reports_errors_and_validates_the_limit _______________
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4191731Z
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4191923Z     def test_runs_reports_errors_and_validates_the_limit() -> None:
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4192670Z         with patch("circa.github_runs.shutil.which", return_value=None):
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4193049Z             missing_gh = runner.invoke(app, ["runs", "scmbuildrelease/CIRCA"])
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4193443Z         bad_limit = runner.invoke(app, ["runs", "scmbuildrelease/CIRCA", "--limit", "0"])
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4194051Z
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4194309Z         assert missing_gh.exit_code == 1 and "'gh' was not found" in missing_gh.output
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4194705Z >       assert bad_limit.exit_code == 2 and "--limit" in bad_limit.output
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4196001Z E       assert (2 == 2 and '--limit' in "\x1b[1;33mUsage: \x1b[0m\x1b[1mroot runs [OPTIONS] {repository}\x1b[0m\n\x1b[2mTry \x1b[0m\x1b[2;34m'root runs \x1b[0...   \x1b[31m│\x1b[0m\n\x1b[31m╰──────────────────────────────────────────────────────────────────────────────╯\x1b[0m\n")
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4196727Z E        +  where 2 = <Result SystemExit(2)>.exit_code
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4197580Z E        +  and   "\x1b[1;33mUsage: \x1b[0m\x1b[1mroot runs [OPTIONS] {repository}\x1b[0m\n\x1b[2mTry \x1b[0m\x1b[2;34m'root runs \x1b[0...   \x1b[31m│\x1b[0m\n\x1b[31m╰──────────────────────────────────────────────────────────────────────────────╯\x1b[0m\n" = <Result SystemExit(2)>.output
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4198181Z
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4198290Z tests/test_investigate.py:907: AssertionError
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4198575Z ================================ tests coverage ================================
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4198933Z _______________ coverage: platform linux, python 3.12.15-final-0 _______________
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4199150Z
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4199279Z Name                           Stmts   Miss Branch BrPart  Cover   Missing
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4199592Z --------------------------------------------------------------------------
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4199912Z src/circa/__init__.py              0      0      0      0   100%
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4200229Z src/circa/analyzer.py             53      2     14      1    96%   110-111
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4200581Z src/circa/benchmark.py           106      4     18      4    94%   72, 108, 110, 171
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4201218Z src/circa/cli.py                 413     43    132     17    88%   83, 85-99, 114, 131-132, 208, 223, 258, 275-277, 279, 281->exit, 290->exit, 302-303, 317-320, 337->341, 463-464, 538-539, 557-558, 596, 629, 653-654, 687-688, 690, 707-708
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4201837Z src/circa/fingerprint.py          32      0      2      0   100%
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4202157Z src/circa/github_runs.py         111      0     28      0   100%
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4202444Z src/circa/hybrid.py               13      0      8      0   100%
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4202735Z src/circa/knowledge.py            37      0      6      0   100%
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4203071Z src/circa/knowledge_store.py     188      2     60      3    98%   239->241, 244, 267
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4203412Z src/circa/llm.py                  81      1     14      1    98%   139
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4203890Z src/circa/log_parser.py           43      1     16      1    97%   75
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4204190Z src/circa/models.py              149      0     30      0   100%
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4204516Z src/circa/performance.py          91      0     38      2    98%   135->137, 137->140
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4204860Z src/circa/pipeline.py            138      1     44      1    99%   246
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4205173Z src/circa/prompts.py              30      1     10      1    95%   78
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4205720Z src/circa/report.py                0      0      0      0   100%
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4206020Z src/circa/resources.py             7      1      2      1    78%   12
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4206330Z src/circa/retrieval.py            26      1      8      1    94%   31
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4206672Z src/circa/semantic.py             71      7     18      5    87%   52, 71, 74-75, 82, 100, 113
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4207020Z --------------------------------------------------------------------------
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4207449Z TOTAL                           1589     64    448     38    95%
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4207745Z Required test coverage of 90.0% reached. Total coverage: 94.70%
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4208062Z =========================== short test summary info ============================
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4209335Z FAILED tests/test_investigate.py::test_runs_reports_errors_and_validates_the_limit - assert (2 == 2 and '--limit' in "\x1b[1;33mUsage: \x1b[0m\x1b[1mroot runs [OPTIONS] {repository}\x1b[0m\n\x1b[2mTry \x1b[0m\x1b[2;34m'root runs \x1b[0...   \x1b[31m│\x1b[0m\n\x1b[31m╰──────────────────────────────────────────────────────────────────────────────╯\x1b[0m\n")
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4210240Z  +  where 2 = <Result SystemExit(2)>.exit_code
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4211066Z  +  and   "\x1b[1;33mUsage: \x1b[0m\x1b[1mroot runs [OPTIONS] {repository}\x1b[0m\n\x1b[2mTry \x1b[0m\x1b[2;34m'root runs \x1b[0...   \x1b[31m│\x1b[0m\n\x1b[31m╰──────────────────────────────────────────────────────────────────────────────╯\x1b[0m\n" = <Result SystemExit(2)>.output
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4211773Z ======================== 1 failed, 312 passed in 5.05s =========================
+Tests (Python 3.12)	Run pytest with coverage	2026-11-01T13:40:09.4732826Z ##[error]Process completed with exit code 1.
