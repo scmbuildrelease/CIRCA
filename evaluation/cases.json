@@ -1,0 +1,265 @@
+{
+  "description": "CIRCA classification evaluation cases. Evaluation data only: never loaded as knowledge and never copied into team/incidents.json. The 35 synthetic retrieval cases in src/circa/data/retrieval_evaluation.json are evaluated alongside these as the legacy baseline.",
+  "labeling_conventions": "label_status 'confirmed' means the label comes from a human-verified source named in label_note, or is synthetic by construction. 'pending_review' labels were assigned from explicit log evidence and are reported separately until a person confirms them. relevant_incident_ids names only packaged incidents that directly describe the case; an empty list means none is known. expected_root_cause_terms are words a correct root cause must all contain (case-insensitive); an empty list means the root cause is not labeled.",
+  "cases": [
+    {
+      "id": "real-circa-39988949831-prettier",
+      "source": "real",
+      "label_status": "confirmed",
+      "log_file": "logs/circa-39988949831-prettier.log",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["format"],
+      "label_note": "Verified team incident real-circa-ci-quality-gate-baseline-001 (reviewed by a maintainer): Prettier found 3 unformatted files."
+    },
+    {
+      "id": "real-circa-39988949831-ruff-format",
+      "source": "real",
+      "label_status": "confirmed",
+      "log_file": "logs/circa-39988949831-ruff-format.log",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["format"],
+      "label_note": "Verified team incident real-circa-ci-quality-gate-baseline-001: 12 files were not Ruff-formatted."
+    },
+    {
+      "id": "real-circa-39988949831-bandit",
+      "source": "real",
+      "label_status": "confirmed",
+      "log_file": "logs/circa-39988949831-bandit.log",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["urlopen"],
+      "label_note": "Verified team incident real-circa-ci-quality-gate-baseline-001: Bandit B310 for urlopen calls that accepted any URL scheme."
+    },
+    {
+      "id": "real-circa-39988949831-mypy",
+      "source": "real",
+      "label_status": "confirmed",
+      "log_file": "logs/circa-39988949831-mypy.log",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["type"],
+      "label_note": "Verified team incident real-circa-ci-quality-gate-baseline-001: 9 mypy type errors in 6 files."
+    },
+    {
+      "id": "real-circa-39859422492-ruff-import-sort",
+      "source": "real",
+      "label_status": "pending_review",
+      "log_file": "logs/circa-39859422492-ruff-import-sort.log",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["import", "sort"],
+      "label_note": "From log evidence: Ruff reported 'Found 1 error.' for an unsorted import block (the diff moves 'from circa.performance import ...')."
+    },
+    {
+      "id": "real-circa-41312342881-pytest-assertion",
+      "source": "real",
+      "label_status": "pending_review",
+      "log_file": "logs/circa-41312342881-pytest-assertion.log",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-assertion-003"],
+      "expected_root_cause_terms": ["assertion"],
+      "label_note": "From log evidence: tests/test_investigate.py:907: AssertionError; '1 failed, 312 passed'."
+    },
+    {
+      "id": "real-tt-metal-protected-tag",
+      "source": "real",
+      "label_status": "pending_review",
+      "log_file": "logs/tt-metal-protected-tag.log",
+      "expected_category": "infrastructure",
+      "expected_root_cause_terms": ["protected"],
+      "label_note": "Team incident real-tt-metal-protected-tag-update-001 is itself pending_review: 'Repository rule violations found / Cannot update this protected ref'."
+    },
+    {
+      "id": "syn-sw-compile-error",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "make[2]: Entering directory '/build/src/net'\ngcc -O2 -Wall -c socket.c -o socket.o\nsocket.c:42:5: error: implicit declaration of function 'set_nonblocking' [-Wimplicit-function-declaration]\nmake[2]: *** [Makefile:31: socket.o] Error 1\nmake: *** [Makefile:12: all] Error 2\n##[error]Process completed with exit code 2.\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["declaration"],
+      "label_note": "Synthetic: compiler error in changed source."
+    },
+    {
+      "id": "syn-sw-python-syntax",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Traceback (most recent call last):\n  File \"/build/tools/gen_config.py\", line 18\n    if mode = 'release':\n            ^\nSyntaxError: invalid syntax\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["syntax"],
+      "label_note": "Synthetic: Python syntax error in a build script."
+    },
+    {
+      "id": "syn-sw-pip-resolution",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Collecting circa-utils==9.9.0\nERROR: Could not find a version that satisfies the requirement circa-utils==9.9.0 (from versions: 1.0.0, 1.1.0)\nERROR: No matching distribution found for circa-utils==9.9.0\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["dependency"],
+      "label_note": "Synthetic: pinned version does not exist on the index."
+    },
+    {
+      "id": "syn-sw-npm-eresolve",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "npm ERR! code ERESOLVE\nnpm ERR! ERESOLVE unable to resolve dependency tree\nnpm ERR! Found: react@18.3.1\nnpm ERR! Could not resolve dependency:\nnpm ERR! peer react@\"^17.0.0\" from legacy-widget@2.4.0\n",
+      "expected_category": "software",
+      "expected_root_cause_terms": ["dependency"],
+      "label_note": "Synthetic: npm peer-dependency conflict."
+    },
+    {
+      "id": "syn-sw-pytest-module-not-found",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "==================================== ERRORS ====================================\n_____________________ ERROR collecting tests/test_client.py _____________________\nImportError while importing test module '/build/tests/test_client.py'.\nE   ModuleNotFoundError: No module named 'httpx'\n=========================== short test summary info ============================\nERROR tests/test_client.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-import-004"],
+      "expected_root_cause_terms": ["module"],
+      "label_note": "Synthetic: undeclared test dependency."
+    },
+    {
+      "id": "syn-sw-assertion-mentions-timeout",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "tests/test_retry.py::test_default_policy FAILED\nE       AssertionError: expected default timeout of 30s, got 10s\nE       assert 10 == 30\nFAILED tests/test_retry.py::test_default_policy - AssertionError: expected default timeout of 30s, got 10s\n========================= 1 failed, 88 passed in 2.10s =========================\n",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-assertion-003"],
+      "expected_root_cause_terms": ["assertion"],
+      "label_note": "Synthetic keyword collision: a network word inside an assertion message."
+    },
+    {
+      "id": "syn-sw-assertion-mentions-disk",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "tests/test_quota.py::test_report_when_disk_full FAILED\nE       AssertionError: assert 'disk full' in 'quota ok'\nFAILED tests/test_quota.py::test_report_when_disk_full - AssertionError: assert 'disk full' in 'quota ok'\n========================= 1 failed, 40 passed in 0.92s =========================\n",
+      "expected_category": "software",
+      "relevant_incident_ids": ["synthetic-software-assertion-003"],
+      "expected_root_cause_terms": ["assertion"],
+      "label_note": "Synthetic keyword collision: hardware words inside a test name and assertion."
+    },
+    {
+      "id": "syn-hw-no-space",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Building wheel for numpy (pyproject.toml): started\nOSError: [Errno 28] No space left on device: '/tmp/pip-build-env-x1/overlay/lib'\nERROR: Failed building wheel for numpy\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "hardware",
+      "relevant_incident_ids": ["synthetic-hardware-disk-001"],
+      "expected_root_cause_terms": ["space"],
+      "label_note": "Synthetic: worker disk full during a dependency build."
+    },
+    {
+      "id": "syn-hw-cc1plus-killed",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "[ 87%] Building CXX object src/CMakeFiles/engine.dir/solver.cpp.o\nc++: fatal error: Killed signal terminated program cc1plus\ncompilation terminated.\nmake[2]: *** [src/CMakeFiles/engine.dir/build.make:76: src/CMakeFiles/engine.dir/solver.cpp.o] Error 1\n",
+      "expected_category": "hardware",
+      "relevant_incident_ids": ["synthetic-hardware-memory-002"],
+      "expected_root_cause_terms": ["memory"],
+      "label_note": "Synthetic: the kernel OOM killer stopped the compiler; the log never says 'memory'."
+    },
+    {
+      "id": "syn-hw-oom-killed-test",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "tests/test_large_model.py::test_load_full_checkpoint\n[  412.118] Out of memory: Killed process 8123 (python) total-vm:31544120kB\n##[error]Process completed with exit code 137.\n",
+      "expected_category": "hardware",
+      "relevant_incident_ids": ["synthetic-hardware-memory-002"],
+      "expected_root_cause_terms": ["memory"],
+      "label_note": "Synthetic: OOM kill during a test."
+    },
+    {
+      "id": "syn-net-dns-git",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Run git clone https://git.internal.example/build/tools.git\nCloning into 'tools'...\nfatal: unable to access 'https://git.internal.example/build/tools.git/': Could not resolve host: git.internal.example\n##[error]Process completed with exit code 128.\n",
+      "expected_category": "network",
+      "relevant_incident_ids": ["synthetic-network-dns-006"],
+      "expected_root_cause_terms": ["resolve"],
+      "label_note": "Synthetic: DNS failure for an internal host."
+    },
+    {
+      "id": "syn-net-pip-read-timeout",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ReadTimeoutError(\"HTTPSConnectionPool(host='pypi.org', port=443): Read timed out. (read timeout=15)\")': /simple/requests/\nERROR: Could not find a version that satisfies the requirement requests (from versions: none)\nERROR: No matching distribution found for requests\n",
+      "expected_category": "network",
+      "relevant_incident_ids": ["synthetic-network-timeout-005"],
+      "expected_root_cause_terms": ["timed out"],
+      "label_note": "Synthetic keyword collision: a dependency-install error caused by a registry timeout."
+    },
+    {
+      "id": "syn-net-git-connect-timeout",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "fatal: unable to access 'https://github.com/example/lib.git/': Failed to connect to github.com port 443 after 134912 ms: Connection timed out\n##[error]Process completed with exit code 128.\n",
+      "expected_category": "network",
+      "expected_root_cause_terms": [],
+      "label_note": "Synthetic: outbound connection timeout."
+    },
+    {
+      "id": "syn-net-docker-registry",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Run docker pull python:3.12-slim\nError response from daemon: Get \"https://registry-1.docker.io/v2/\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "network",
+      "expected_root_cause_terms": [],
+      "label_note": "Synthetic: container registry unreachable."
+    },
+    {
+      "id": "syn-inf-image-manifest",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Pulling image ghcr.io/example/builder:v3\nError response from daemon: manifest for ghcr.io/example/builder:v3 not found: manifest unknown: manifest unknown\n##[error]Docker pull failed with exit code 1\n",
+      "expected_category": "infrastructure",
+      "relevant_incident_ids": ["synthetic-infrastructure-image-007"],
+      "expected_root_cause_terms": ["image"],
+      "label_note": "Synthetic: requested runner image does not exist."
+    },
+    {
+      "id": "syn-inf-artifact-503",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Uploading artifact 'test-results' (1.2 MB)\nError: Failed to CreateArtifact: Received non-retryable error: Failed request: (503) Service Unavailable\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "infrastructure",
+      "relevant_incident_ids": ["synthetic-infrastructure-service-008"],
+      "expected_root_cause_terms": ["503"],
+      "label_note": "Synthetic: artifact service outage."
+    },
+    {
+      "id": "syn-inf-runner-shutdown",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "##[error]The runner has received a shutdown signal. This can happen when the runner service is stopped, or a manually started runner is canceled.\n##[error]The operation was canceled.\n",
+      "expected_category": "infrastructure",
+      "expected_root_cause_terms": ["runner"],
+      "label_note": "Synthetic: the CI runner was lost mid-job."
+    },
+    {
+      "id": "syn-unk-exit-code-only",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Run ./scripts/release.sh\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "unknown",
+      "label_note": "Synthetic: no cause is visible in the log."
+    },
+    {
+      "id": "syn-unk-make-error-only",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "make: *** [Makefile:12: all] Error 2\n##[error]Process completed with exit code 2.\n",
+      "expected_category": "unknown",
+      "label_note": "Synthetic: the failing sub-command's output is missing."
+    },
+    {
+      "id": "syn-unk-cancelled",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "##[error]The operation was canceled.\n",
+      "expected_category": "unknown",
+      "label_note": "Synthetic: cancellation without a stated reason."
+    },
+    {
+      "id": "syn-unk-generic-test-failure",
+      "source": "synthetic",
+      "label_status": "confirmed",
+      "failure_log": "Running test suite...\nFAILED (failures=1)\nTest step failed for module core.\n##[error]Process completed with exit code 1.\n",
+      "expected_category": "unknown",
+      "label_note": "Synthetic: generic words only; the failing assertion is not shown."
+    }
+  ]
+}

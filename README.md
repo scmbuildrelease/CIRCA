@@ -458,6 +458,7 @@ lines capped at 3,000 characters. Known failures, already-recorded failures,
 | `circa analyze FAILURE.json`                   | Analyze a structured failure (optional `--llm`, `--semantic`)                |
 | `circa knowledge …`                            | `add`, `update`, `verify`, `reject`, `supersede`, `show`, `list`, `validate` |
 | `circa benchmark [--top-k N]`                  | Measure retrieval quality on the synthetic evaluation dataset                |
+| `circa evaluate [--dataset PATH] [--json]`     | Measure deterministic classification on labeled real and synthetic failures  |
 
 Common `investigate-log` options: `--knowledge PATH`, `--repo OWNER/REPO`,
 `--limit N`, `--json`, `--synthetic`. Every command has `--help`.
@@ -570,6 +571,32 @@ and combined results explicitly report keyword fallback; no cloud services are
 used. Top-1, Recall@K, and MRR use only cases with known relevant incidents;
 no-result rate uses evaluated cases and coverage uses all dataset cases. It does
 not measure LLM token use.
+
+## Classification evaluation
+
+`circa evaluate` measures deterministic classification and diagnosis on the
+labeled cases in `evaluation/cases.json` (real CI logs in `evaluation/logs/` and
+synthetic log excerpts) plus the 35 legacy benchmark cases as a baseline. Run it
+from a repository checkout; the dataset is not shipped in the wheel.
+
+```bash
+circa evaluate
+circa evaluate --json > evaluation-results.json
+```
+
+It reports category accuracy, per-category precision and recall, the unknown
+rate, false positives (expected `unknown` but given a category), wrong-category
+predictions, first-match relevance, root-cause correctness (the root cause
+contains every labeled term), and how often `investigate-log` would ask the
+optional LLM when deterministic analysis is already correct. Every rate shows its
+denominator. Labels marked `pending_review` were assigned from log evidence and
+are reported separately until a person confirms them.
+
+Evaluation is read-only and deterministic: no LLM or network is used, only the
+packaged synthetic incidents are matched, and `team/incidents.json` is never read
+or written. Evaluation cases never become knowledge; add a real incident only
+through `circa knowledge`. Add new cases when real failures are understood, not to
+tune rules toward known cases.
 
 ## Development
 

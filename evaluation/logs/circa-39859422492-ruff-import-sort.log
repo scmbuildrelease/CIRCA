@@ -1,0 +1,267 @@
+quality	UNKNOWN STEP	﻿2026-10-22T21:42:38.0927624Z Current runner version: '2.338.0'
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0959002Z ##[group]Runner Image Provisioner
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0959988Z Hosted Compute Agent
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0960799Z Version: 20261012.601
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0961457Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0962267Z Build Date: 2026-10-12T17:48:21Z
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0963030Z Worker ID: {dc4bd9be-48c0-4009-8f01-d82b0505af0a}
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0963765Z Region: centralus
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0964416Z Cloud: Azure
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0964983Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0966564Z ##[group]Operating System
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0967287Z Ubuntu
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0967843Z 24.04.5
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0968465Z LTS
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0969339Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0969951Z ##[group]Runner Image
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0970714Z Image: ubuntu-24.04
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0971331Z Version: 20261012.334.1
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0972658Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0974246Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0975330Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0976684Z ##[group]GITHUB_TOKEN Permissions
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0979274Z Contents: read
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0979913Z Metadata: read
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0980968Z Packages: read
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0981564Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0983863Z Secret source: Actions
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0985004Z Cache mode: write
+quality	UNKNOWN STEP	2026-10-22T21:42:38.0986175Z Prepare workflow directory
+quality	UNKNOWN STEP	2026-10-22T21:42:38.1343992Z Prepare all required actions
+quality	UNKNOWN STEP	2026-10-22T21:42:38.1391724Z Getting action download info
+quality	UNKNOWN STEP	2026-10-22T21:42:38.4214738Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+quality	UNKNOWN STEP	2026-10-22T21:42:38.5180966Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+quality	UNKNOWN STEP	2026-10-22T21:42:38.6974410Z Complete job name: quality
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7748521Z ##[group]Run actions/checkout@v4
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7749661Z with:
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7750155Z   repository: scmbuildrelease/CIRCA
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7753884Z   token: ***
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7754350Z   ssh-strict: true
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7754810Z   ssh-user: git
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7755280Z   persist-credentials: true
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7755791Z   clean: true
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7756265Z   sparse-checkout-cone-mode: true
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7756812Z   fetch-depth: 1
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7757274Z   fetch-tags: false
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7757743Z   show-progress: true
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7758210Z   lfs: false
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7758898Z   submodules: false
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7759404Z   set-safe-directory: true
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7759948Z   allow-unsafe-pr-checkout: false
+quality	UNKNOWN STEP	2026-10-22T21:42:38.7760927Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8758265Z Syncing repository: scmbuildrelease/CIRCA
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8763038Z ##[group]Getting Git version info
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8764201Z Working directory is '/home/runner/work/CIRCA/CIRCA'
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8766048Z [command]/usr/bin/git version
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8879286Z git version 2.55.0
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8916339Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8924596Z Temporarily overriding HOME='/home/runner/work/_temp/30aa18e4-0322-4a4d-95df-912a15ac9d7e' before making global git config changes
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8926545Z Adding repository directory to the temporary git global config as a safe directory
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8933583Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/CIRCA/CIRCA
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8994418Z Deleting the contents of '/home/runner/work/CIRCA/CIRCA'
+quality	UNKNOWN STEP	2026-10-22T21:42:38.8999657Z ##[group]Initializing the repository
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9004034Z [command]/usr/bin/git init /home/runner/work/CIRCA/CIRCA
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9129789Z hint: Using 'master' as the name for the initial branch. This default branch name
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9131661Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9133003Z hint: to use in all of your new repositories, which will suppress this warning,
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9133861Z hint: call:
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9134301Z hint:
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9134997Z hint: 	git config --global init.defaultBranch <name>
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9136049Z hint:
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9136886Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9138846Z hint: 'development'. The just-created branch can be renamed via this command:
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9140247Z hint:
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9140912Z hint: 	git branch -m <name>
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9141432Z hint:
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9142090Z hint: Disable this message with "git config set advice.defaultBranchName false"
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9143149Z Initialized empty Git repository in /home/runner/work/CIRCA/CIRCA/.git/
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9147614Z [command]/usr/bin/git remote add origin https://github.com/scmbuildrelease/CIRCA
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9215963Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9217273Z ##[group]Disabling automatic garbage collection
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9218457Z [command]/usr/bin/git config --local gc.auto 0
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9242089Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9243681Z ##[group]Setting up auth
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9248074Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9283377Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9699645Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9735687Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+quality	UNKNOWN STEP	2026-10-22T21:42:38.9965963Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+quality	UNKNOWN STEP	2026-10-22T21:42:39.0003373Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+quality	UNKNOWN STEP	2026-10-22T21:42:39.0231104Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+quality	UNKNOWN STEP	2026-10-22T21:42:39.0274093Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:39.0283280Z ##[group]Fetching the repository
+quality	UNKNOWN STEP	2026-10-22T21:42:39.0284913Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +351979c0e26b0ae72c909de0b990be029cabfed2:refs/remotes/origin/main
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3785069Z From https://github.com/scmbuildrelease/CIRCA
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3786165Z  * [new ref]         351979c0e26b0ae72c909de0b990be029cabfed2 -> origin/main
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3790658Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3791485Z ##[group]Determining the checkout info
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3793469Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3799553Z [command]/usr/bin/git sparse-checkout disable
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3857449Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3891522Z ##[group]Checking out the ref
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3896879Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3994474Z Switched to a new branch 'main'
+quality	UNKNOWN STEP	2026-10-22T21:42:39.3999828Z branch 'main' set up to track 'origin/main'.
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4006549Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4052775Z [command]/usr/bin/git log -1 --format=%H
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4079780Z 351979c0e26b0ae72c909de0b990be029cabfed2
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4374852Z ##[group]Run actions/setup-python@v5
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4375489Z with:
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4375917Z   python-version: 3.12
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4376415Z   cache: pip
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4376858Z   check-latest: false
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4380669Z   token: ***
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4381134Z   update-environment: true
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4381643Z   allow-prereleases: false
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4382355Z   freethreaded: false
+quality	UNKNOWN STEP	2026-10-22T21:42:39.4382824Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:39.5804422Z ##[group]Installed versions
+quality	UNKNOWN STEP	2026-10-22T21:42:39.5853440Z (node:2308) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+quality	UNKNOWN STEP	2026-10-22T21:42:39.5856303Z (Use `node --trace-deprecation ...` to show where the warning was created)
+quality	UNKNOWN STEP	2026-10-22T21:42:39.5858119Z Successfully set up CPython (3.12.15)
+quality	UNKNOWN STEP	2026-10-22T21:42:39.5860482Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:39.6873955Z [command]/opt/hostedtoolcache/Python/3.12.15/x64/bin/pip cache dir
+quality	UNKNOWN STEP	2026-10-22T21:42:40.0294650Z /home/runner/.cache/pip
+quality	UNKNOWN STEP	2026-10-22T21:42:40.1893727Z Cache hit for: setup-python-Linux-x64-24.04-Ubuntu-python-3.12.15-pip-147a292cd0d4c46f3fb50b59eb5cdc52f723af659dd644c0ac6bf835f861b6be
+quality	UNKNOWN STEP	2026-10-22T21:42:40.2005643Z (node:2308) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+quality	UNKNOWN STEP	2026-10-22T21:42:40.9677235Z Received 18752243 of 18752243 (100.0%), 27.3 MBs/sec
+quality	UNKNOWN STEP	2026-10-22T21:42:40.9678561Z Cache Size: ~18 MB (18752243 B)
+quality	UNKNOWN STEP	2026-10-22T21:42:40.9711350Z [command]/usr/bin/tar -xf /home/runner/work/_temp/221d0fc0-f083-4d14-9fee-01051d3aa6c0/cache.tzst -P -C /home/runner/work/CIRCA/CIRCA --use-compress-program unzstd
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0227515Z Cache restored successfully
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0244297Z Cache restored from key: setup-python-Linux-x64-24.04-Ubuntu-python-3.12.15-pip-147a292cd0d4c46f3fb50b59eb5cdc52f723af659dd644c0ac6bf835f861b6be
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0528537Z ##[group]Run python -m pip install -e ".[dev]"
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0529313Z python -m pip install -e ".[dev]"
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0842768Z shell: /usr/bin/bash -e {0}
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0843113Z env:
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0843423Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0843922Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0844444Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0844868Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0845301Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0845723Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+quality	UNKNOWN STEP	2026-10-22T21:42:41.0846093Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:41.6929650Z Obtaining file:///home/runner/work/CIRCA/CIRCA
+quality	UNKNOWN STEP	2026-10-22T21:42:41.6945336Z   Installing build dependencies: started
+quality	UNKNOWN STEP	2026-10-22T21:42:42.4032655Z   Installing build dependencies: finished with status 'done'
+quality	UNKNOWN STEP	2026-10-22T21:42:42.4039109Z   Checking if build backend supports build_editable: started
+quality	UNKNOWN STEP	2026-10-22T21:42:42.4532249Z   Checking if build backend supports build_editable: finished with status 'done'
+quality	UNKNOWN STEP	2026-10-22T21:42:42.4540509Z   Getting requirements to build editable: started
+quality	UNKNOWN STEP	2026-10-22T21:42:42.6100201Z   Getting requirements to build editable: finished with status 'done'
+quality	UNKNOWN STEP	2026-10-22T21:42:42.6116904Z   Installing backend dependencies: started
+quality	UNKNOWN STEP	2026-10-22T21:42:43.0819473Z   Installing backend dependencies: finished with status 'done'
+quality	UNKNOWN STEP	2026-10-22T21:42:43.0826164Z   Preparing editable metadata (pyproject.toml): started
+quality	UNKNOWN STEP	2026-10-22T21:42:43.2717562Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+quality	UNKNOWN STEP	2026-10-22T21:42:43.4576843Z Collecting pydantic>=2.0 (from circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:43.4592114Z   Using cached pydantic-2.14.1-py3-none-any.whl.metadata (133 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:43.4939788Z Collecting typer>=0.12 (from circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:43.4952796Z   Using cached typer-0.27.3-py3-none-any.whl.metadata (16 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:43.5423622Z Collecting pytest>=8.0 (from circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:43.5437423Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:43.8772047Z Collecting ruff>=0.6 (from circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:43.8786641Z   Using cached ruff-0.17.2-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (20 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:43.9019615Z Collecting annotated-types>=0.6.0 (from pydantic>=2.0->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:43.9031813Z   Using cached annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.5610277Z Collecting pydantic-core==2.50.1 (from pydantic>=2.0->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.5624771Z   Using cached pydantic_core-2.50.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.5 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.5882206Z Collecting typing-extensions>=4.16.0 (from pydantic>=2.0->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.5894831Z   Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6112390Z Collecting typing-inspection>=0.4.4 (from pydantic>=2.0->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6125165Z   Using cached typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6349534Z Collecting iniconfig>=1.0.1 (from pytest>=8.0->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6361748Z   Using cached iniconfig-2.3.1-py3-none-any.whl.metadata (2.8 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6443029Z Collecting packaging>=22 (from pytest>=8.0->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6454854Z   Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6509829Z Collecting pluggy<2,>=1.5 (from pytest>=8.0->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6521492Z   Using cached pluggy-1.7.0-py3-none-any.whl.metadata (5.0 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6809181Z Collecting pygments>=2.7.2 (from pytest>=8.0->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.6823582Z   Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.7072712Z Collecting shellingham>=1.3.0 (from typer>=0.12->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.7084493Z   Using cached shellingham-1.5.4-py2.py3-none-any.whl.metadata (3.5 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.7459640Z Collecting rich>=13.8.0 (from typer>=0.12->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.7472553Z   Using cached rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.7692227Z Collecting annotated-doc>=0.0.2 (from typer>=0.12->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.7704451Z   Using cached annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.7965429Z Collecting markdown-it-py>=2.2.0 (from rich>=13.8.0->typer>=0.12->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.7977981Z   Using cached markdown_it_py-4.2.0-py3-none-any.whl.metadata (7.4 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8229287Z Collecting mdurl~=0.1 (from markdown-it-py>=2.2.0->rich>=13.8.0->typer>=0.12->circa==0.1.0)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8241455Z   Using cached mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8288759Z Using cached pydantic-2.14.1-py3-none-any.whl (488 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8303510Z Using cached pydantic_core-2.50.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.2 MB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8323902Z Using cached annotated_types-0.8.0-py3-none-any.whl (13 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8335722Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8349039Z Using cached pluggy-1.7.0-py3-none-any.whl (27 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8361383Z Using cached iniconfig-2.3.1-py3-none-any.whl (7.6 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8373198Z Using cached packaging-26.3-py3-none-any.whl (129 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8385530Z Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8402349Z Using cached ruff-0.17.2-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (10.5 MB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8454195Z Using cached typer-0.27.3-py3-none-any.whl (123 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8466408Z Using cached annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8477515Z Using cached rich-15.0.0-py3-none-any.whl (310 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8490215Z Using cached markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8501629Z Using cached mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8512815Z Using cached shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8524084Z Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.8535990Z Using cached typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+quality	UNKNOWN STEP	2026-10-22T21:42:44.9104140Z Building wheels for collected packages: circa
+quality	UNKNOWN STEP	2026-10-22T21:42:44.9112556Z   Building editable for circa (pyproject.toml): started
+quality	UNKNOWN STEP	2026-10-22T21:42:44.9469234Z   Building editable for circa (pyproject.toml): finished with status 'done'
+quality	UNKNOWN STEP	2026-10-22T21:42:44.9476240Z   Created wheel for circa: filename=circa-0.1.0-py3-none-any.whl size=10926 sha256=33201a717b99c89bcc6ff502c804bbd346ce56a0cfc4f2742d6893cd027ba28f
+quality	UNKNOWN STEP	2026-10-22T21:42:44.9478384Z   Stored in directory: /tmp/pip-ephem-wheel-cache-shaawdnv/wheels/70/e4/cd/79bb4191370b9fdf1a749fb25c0ba73b11dfc1104f540635a5
+quality	UNKNOWN STEP	2026-10-22T21:42:44.9496554Z Successfully built circa
+quality	UNKNOWN STEP	2026-10-22T21:42:44.9898183Z Installing collected packages: typing-extensions, shellingham, ruff, pygments, pluggy, packaging, mdurl, iniconfig, annotated-types, annotated-doc, typing-inspection, pytest, pydantic-core, markdown-it-py, rich, pydantic, typer, circa
+quality	UNKNOWN STEP	2026-10-22T21:42:47.0126319Z
+quality	UNKNOWN STEP	2026-10-22T21:42:47.0147237Z Successfully installed annotated-doc-0.0.5 annotated-types-0.8.0 circa-0.1.0 iniconfig-2.3.1 markdown-it-py-4.2.0 mdurl-0.1.2 packaging-26.3 pluggy-1.7.0 pydantic-2.14.1 pydantic-core-2.50.1 pygments-2.21.0 pytest-9.1.1 rich-15.0.0 ruff-0.17.2 shellingham-1.5.4 typer-0.27.3 typing-extensions-4.16.0 typing-inspection-0.4.4
+quality	UNKNOWN STEP	2026-10-22T21:42:47.0155910Z
+quality	UNKNOWN STEP	2026-10-22T21:42:47.0156210Z [notice] A new release of pip is available: 26.2.1 -> 26.2.2
+quality	UNKNOWN STEP	2026-10-22T21:42:47.0156634Z [notice] To update, run: pip install --upgrade pip
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1161161Z ##[group]Run python -m ruff check .
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1161512Z python -m ruff check .
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1226860Z shell: /usr/bin/bash -e {0}
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1227117Z env:
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1227399Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1227851Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1228295Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1228938Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1229366Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1229785Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1230133Z ##[endgroup]
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1656296Z I001 [*] Import block is un-sorted or un-formatted
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1659815Z  --> tests/test_performance.py:1:1
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1660342Z   |
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1660898Z 1 | / from circa.performance import analyze_performance_failure
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1661552Z 2 | | from circa.pipeline import analyze_log
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1662088Z 3 | | from circa.analyzer import analyze_failure
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1662677Z 4 | | from circa.log_parser import extract_failure_text
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1663238Z 5 | | from circa.models import CIFailure
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1663700Z   | |__________________________________^
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1664137Z help: Organize imports
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1664651Z   |
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1665143Z   - from circa.performance import analyze_performance_failure
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1665768Z   - from circa.pipeline import analyze_log
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1666287Z 1 | from circa.analyzer import analyze_failure
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1666881Z 2 | from circa.log_parser import extract_failure_text
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1667463Z 3 | from circa.models import CIFailure
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1668057Z 4 + from circa.performance import analyze_performance_failure
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1668916Z 5 + from circa.pipeline import analyze_log
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1669396Z 6 |
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1669687Z   |
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1669854Z
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1669998Z Found 1 error.
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1670225Z [*] 1 fixable with `--fix`.
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1681237Z ##[error]Process completed with exit code 1.
+quality	UNKNOWN STEP	2026-10-22T21:42:47.1832138Z Post job cleanup.
+quality	UNKNOWN STEP	2026-10-22T21:42:47.2688990Z [command]/usr/bin/git version
+quality	UNKNOWN STEP	2026-10-22T21:42:47.2732674Z git version 2.55.0
+quality	UNKNOWN STEP	2026-10-22T21:42:47.2771613Z Temporarily overriding HOME='/home/runner/work/_temp/9ab6c244-eedd-4b66-a2fa-76bd9297b0a6' before making global git config changes
+quality	UNKNOWN STEP	2026-10-22T21:42:47.2773216Z Adding repository directory to the temporary git global config as a safe directory
+quality	UNKNOWN STEP	2026-10-22T21:42:47.2777370Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/CIRCA/CIRCA
+quality	UNKNOWN STEP	2026-10-22T21:42:47.2818865Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+quality	UNKNOWN STEP	2026-10-22T21:42:47.2855806Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+quality	UNKNOWN STEP	2026-10-22T21:42:47.3107021Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+quality	UNKNOWN STEP	2026-10-22T21:42:47.3139831Z http.https://github.com/.extraheader
+quality	UNKNOWN STEP	2026-10-22T21:42:47.3156720Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+quality	UNKNOWN STEP	2026-10-22T21:42:47.3192391Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+quality	UNKNOWN STEP	2026-10-22T21:42:47.3460866Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+quality	UNKNOWN STEP	2026-10-22T21:42:47.3503183Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+quality	UNKNOWN STEP	2026-10-22T21:42:47.3949479Z Cleaning up orphan processes
+quality	UNKNOWN STEP	2026-10-22T21:42:47.4218547Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

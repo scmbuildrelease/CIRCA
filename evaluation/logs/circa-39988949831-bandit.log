@@ -1,0 +1,71 @@
+Security (Bandit)	Run Bandit	﻿2026-10-23T16:42:13.6426688Z ##[group]Run bandit -c pyproject.toml -r src
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6427156Z bandit -c pyproject.toml -r src
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6466985Z shell: /usr/bin/bash -e {0}
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6467332Z env:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6467595Z   PIP_DISABLE_PIP_VERSION_CHECK: 1
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6468046Z   PYTHON_VERSION: 3.12
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6468365Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6468788Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6469181Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6469582Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6469969Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6470329Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.6470665Z ##[endgroup]
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.7997843Z [main]	INFO	profile include tests: None
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.7998834Z [main]	INFO	profile exclude tests: None
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.7999336Z [main]	INFO	cli include tests: None
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.7999689Z [main]	INFO	cli exclude tests: None
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8000003Z [main]	INFO	using config: pyproject.toml
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8000286Z [main]	INFO	running on Python 3.12.15
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8755823Z Run started:2026-10-23 16:42:13.875172+00:00
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8756764Z
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8757586Z Test results:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8758687Z >> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8759428Z    Severity: Medium   Confidence: High
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8760116Z    CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8760930Z    More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8761580Z    Location: src/circa/llm.py:46:17
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8762052Z 45	        try:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8762533Z 46	            with urlopen(request, timeout=self.timeout) as response:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8763169Z 47	                body = json.loads(response.read().decode("utf-8"))
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8763456Z
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8763641Z --------------------------------------------------
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8764313Z >> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8764818Z    Severity: Medium   Confidence: High
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8765153Z    CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8765678Z    More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8766099Z    Location: src/circa/llm.py:73:17
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8766383Z 72	        try:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8766668Z 73	            with urlopen(request, timeout=self.timeout) as response:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8767019Z 74	                body = json.loads(response.read().decode("utf-8"))
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8767418Z
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8767604Z --------------------------------------------------
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8768384Z >> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8768835Z    Severity: Medium   Confidence: High
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8769196Z    CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8769649Z    More Info: https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8770139Z    Location: src/circa/semantic.py:45:17
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8770402Z 44	        try:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8770667Z 45	            with urlopen(request, timeout=self.timeout) as response:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8771107Z 46	                body = json.loads(response.read().decode("utf-8"))
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8771324Z
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8771433Z --------------------------------------------------
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8771774Z
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8771879Z Code scanned:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8772201Z 	Total lines of code: 1092
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8772445Z 	Total lines skipped (#nosec): 0
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8772849Z 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8773104Z
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8773235Z Run metrics:
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8773460Z 	Total issues (by severity):
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8773718Z 		Undefined: 0
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8773930Z 		Low: 0
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8774145Z 		Medium: 3
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8774372Z 		High: 0
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8774620Z 	Total issues (by confidence):
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8774869Z 		Undefined: 0
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8775078Z 		Low: 0
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8775303Z 		Medium: 0
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8775512Z 		High: 3
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8775706Z Files skipped (0):
+Security (Bandit)	Run Bandit	2026-10-23T16:42:13.8994094Z ##[error]Process completed with exit code 1.

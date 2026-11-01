@@ -13,6 +13,7 @@ import typer
 from .analyzer import analyze_failure
 from .benchmark import BenchmarkMethodResult, load_evaluation_cases, run_retrieval_benchmark
 from .doctor import DEFAULT_KNOWLEDGE, Check, circa_version, run_checks
+from .evaluation import DEFAULT_DATASET, ClassificationMetrics, EvaluationReport, Rate, run_classification_evaluation
 from .github_runs import (
     MAX_RUN_LIMIT,
     FailedRun,
@@ -659,6 +660,86 @@ def benchmark(
     for method in report.methods:
         _echo()
         _print_benchmark_method(method, report.top_k)
+
+
+def _format_rate(rate: Rate) -> str:
+    return f"{rate.count}/{rate.total} ({rate.rate:.1%})" if rate.rate is not None else "n/a (no cases)"
+
+
+def _print_evaluation_group(name: str, metrics: ClassificationMetrics) -> None:
+    """Print one group's metrics; each states its own denominator."""
+
+    _echo(f"{name}: {metrics.cases} case(s)")
+    if not metrics.cases:
+        return
+    _echo(f"  category accuracy: {_format_rate(metrics.accuracy)}")
+    _echo(f"  classified unknown: {_format_rate(metrics.unknown)}")
+    _echo(f"  false positives (expected unknown, got a category): {_format_rate(metrics.false_positives)}")
+    _echo(f"  wrong category (of non-unknown predictions): {_format_rate(metrics.wrong_category)}")
+    _echo(f"  first historical match relevant (labeled cases): {_format_rate(metrics.matching)}")
+    _echo(f"  root cause contains the labeled terms: {_format_rate(metrics.root_cause)}")
+    if metrics.llm_asked.total:
+        _echo(
+            f"  LLM asked (log cases): {_format_rate(metrics.llm_asked)};"
+            f" of those, already correct deterministically: {metrics.llm_asked_when_correct}"
+        )
+
+
+def _print_evaluation(report: EvaluationReport) -> None:
+    _echo(f"CIRCA Classification Evaluation: {len(report.cases)} case(s) from {report.dataset} and the legacy set")
+    _echo("Deterministic only; packaged synthetic incidents only; nothing is written.")
+    titles = {
+        "all_confirmed": "All confirmed labels",
+        "legacy": "Legacy synthetic cases (baseline)",
+        "synthetic": "Synthetic log cases",
+        "real": "Real logs (confirmed labels)",
+        "pending_review": "Real logs (labels pending review; not in the totals above)",
+    }
+    for name, metrics in report.groups.items():
+        _echo()
+        _print_evaluation_group(titles.get(name, name), metrics)
+    _echo()
+    _echo("Per category (all confirmed labels): support, precision, recall")
+    for row in report.groups["all_confirmed"].per_category:
+        _echo(f"  {row.category}: {row.support}, {_format_metric(row.precision)}, {_format_metric(row.recall)}")
+    _echo()
+    _echo("Misclassifications, all cases (expected -> predicted):")
+    if not report.errors:
+        _echo("  none")
+    for pattern, count in report.errors.items():
+        _echo(f"  {pattern}: {count}")
+    pending = {case.id for case in report.cases if case.label_status == "pending_review"}
+    for case in report.cases:
+        if not case.correct:
+            note = " (label pending review)" if case.id in pending else ""
+            _echo(f"  - {case.id}: {case.expected_category} -> {case.predicted_category}{note}")
+    _echo()
+    _echo("Root cause missing the labeled terms:")
+    misses = [case for case in report.cases if case.root_cause_correct is False]
+    if not misses:
+        _echo("  none")
+    for case in misses:
+        note = " (label pending review)" if case.id in pending else ""
+        _echo(f"  - {case.id} ({case.predicted_category}){note}: {case.root_cause}")
+
+
+@app.command()
+def evaluate(
+    dataset: Annotated[
+        Path, typer.Option("--dataset", dir_okay=False, help="Classification evaluation dataset JSON file.")
+    ] = DEFAULT_DATASET,
+    json_output: Annotated[bool, typer.Option("--json", help="Print the full evaluation as JSON.")] = False,
+) -> None:
+    """Evaluate deterministic classification on labeled cases (never reads or writes team knowledge)."""
+
+    try:
+        report = run_classification_evaluation(dataset)
+    except (TypeError, ValueError) as error:
+        raise _fail(error) from error
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    _print_evaluation(report)
 
 
 KnowledgeFileOption = Annotated[

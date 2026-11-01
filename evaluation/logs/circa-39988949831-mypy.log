@@ -1,0 +1,24 @@
+Type check (mypy)	Run mypy	﻿2026-10-23T16:42:21.4096226Z ##[group]Run mypy
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4096540Z mypy
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4163339Z shell: /usr/bin/bash -e {0}
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4163650Z env:
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4163894Z   PIP_DISABLE_PIP_VERSION_CHECK: 1
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4164210Z   PYTHON_VERSION: 3.12
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4164556Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4165375Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4165935Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4166395Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4166862Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4167330Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+Type check (mypy)	Run mypy	2026-10-23T16:42:21.4167723Z ##[endgroup]
+Type check (mypy)	Run mypy	2026-10-23T16:42:22.9822026Z src/circa/resources.py:13: error: Argument 1 to "Path" has incompatible type "Traversable"; expected "str | PathLike[str]"  [arg-type]
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.1132453Z src/circa/semantic.py:29: error: Item "None" of "str | None" has no attribute "rstrip"  [union-attr]
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.1335619Z src/circa/llm.py:30: error: Item "None" of "str | None" has no attribute "rstrip"  [union-attr]
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.1464561Z src/circa/retrieval.py:51: error: Incompatible types in assignment (expression has type "SemanticIncidentMatch", variable has type "KeywordIncidentMatch")  [assignment]
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.1467216Z src/circa/retrieval.py:57: error: "KeywordIncidentMatch" has no attribute "similarity"  [attr-defined]
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.1468582Z src/circa/retrieval.py:65: error: "KeywordIncidentMatch" has no attribute "similarity"  [attr-defined]
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.1867855Z src/circa/benchmark.py:192: error: Argument "semantic_retriever" to "retrieve_historical_candidates" has incompatible type "_PrecomputedSemanticRetriever | None"; expected "SemanticIncidentRetriever | None"  [arg-type]
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.2025568Z src/circa/cli.py:167: error: Incompatible types in assignment (expression has type "list[dict[str, Any]] | None", target has type "dict[str, float | str | None] | dict[str, Any] | None")  [assignment]
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.2027733Z src/circa/cli.py:176: error: Incompatible types in assignment (expression has type "list[dict[str, Any]] | None", target has type "dict[str, float | str | None] | dict[str, Any] | None")  [assignment]
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.2208760Z Found 9 errors in 6 files (checked 17 source files)
+Type check (mypy)	Run mypy	2026-10-23T16:42:24.2360059Z ##[error]Process completed with exit code 1.

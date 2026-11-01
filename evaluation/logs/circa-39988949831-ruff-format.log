@@ -1,0 +1,322 @@
+Lint (Ruff)	Ruff format check	﻿2026-10-23T16:42:10.8934920Z ##[group]Run ruff format --check --diff .
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.8935382Z ruff format --check --diff .
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9001742Z shell: /usr/bin/bash -e {0}
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9002318Z env:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9002605Z   PIP_DISABLE_PIP_VERSION_CHECK: 1
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9002948Z   PYTHON_VERSION: 3.12
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9003319Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9003845Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9004377Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9004844Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9005326Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9005813Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9006206Z ##[endgroup]
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9190538Z --- src/circa/benchmark.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9191416Z +++ src/circa/benchmark.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9192618Z @@ -115,7 +115,10 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9193507Z      top_1_hits = sum(bool(ids) and ids[0] in case.relevant_incident_ids for case, ids in eligible)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9194802Z      recall_hits = sum(bool(set(ids) & set(case.relevant_incident_ids)) for case, ids in eligible)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9195719Z      reciprocal_ranks = [
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9196722Z -        next((1 / rank for rank, incident_id in enumerate(ids, start=1) if incident_id in case.relevant_incident_ids), 0.0)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9197861Z +        next(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9198795Z +            (1 / rank for rank, incident_id in enumerate(ids, start=1) if incident_id in case.relevant_incident_ids),
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9199736Z +            0.0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9200169Z +        )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9200621Z          for case, ids in eligible
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9201133Z      ]
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9201585Z      eligible_count = len(eligible)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9202430Z @@ -189,15 +192,21 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9203007Z          combined = retrieve_historical_candidates(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9203623Z              failure,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9204111Z              available_incidents,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9205166Z -            semantic_retriever=_PrecomputedSemanticRetriever(semantic_matches) if semantic_matches is not None else None,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9206452Z +            semantic_retriever=_PrecomputedSemanticRetriever(semantic_matches)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9207263Z +            if semantic_matches is not None
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9207829Z +            else None,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9208324Z              keyword_limit=top_k,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9208986Z              semantic_limit=top_k,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9209520Z              limit=top_k,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9209988Z          )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9210649Z          combined_ids.append([candidate.incident.id for candidate in combined])
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9211416Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9219613Z -    semantic_status = "available" if semantic_unavailable == 0 else "unavailable" if semantic_unavailable == len(cases) else "partial"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9220765Z -    combined_status = "combined" if semantic_unavailable == 0 else f"keyword fallback for {semantic_unavailable} case(s)"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9221459Z +    semantic_status = (
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9222573Z +        "available" if semantic_unavailable == 0 else "unavailable" if semantic_unavailable == len(cases) else "partial"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9223302Z +    )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9223626Z +    combined_status = (
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9224192Z +        "combined" if semantic_unavailable == 0 else f"keyword fallback for {semantic_unavailable} case(s)"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9224827Z +    )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9225174Z      return BenchmarkReport(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9225751Z          dataset_size=len(cases),
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9226749Z 12 files would be reformatted, 22 files already formatted
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9227491Z          top_k=top_k,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9227680Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9228147Z --- src/circa/cli.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9228736Z +++ src/circa/cli.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9229081Z @@ -115,7 +115,9 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9229426Z      metrics = method.metrics
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9229893Z      typer.echo(f"{method.name.title()} retrieval ({method.status})")
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9230566Z      typer.echo(f"  evaluated: {metrics.evaluated_cases}; skipped: {metrics.skipped_cases}")
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9231440Z -    typer.echo(f"  relevant-label cases: {metrics.relevant_cases}; no-known-relevance: {metrics.no_known_relevance_cases}")
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9232492Z +    typer.echo(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9233083Z +        f"  relevant-label cases: {metrics.relevant_cases}; no-known-relevance: {metrics.no_known_relevance_cases}"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9233716Z +    )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9234213Z      typer.echo(f"  Top-1 accuracy (relevant-label cases): {_format_metric(metrics.top_1_accuracy)}")
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9234963Z      typer.echo(f"  Recall@{top_k} (relevant-label cases): {_format_metric(metrics.recall_at_k)}")
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9235892Z      typer.echo(f"  MRR (relevant-label cases): {_format_metric(metrics.mean_reciprocal_rank)}")
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9236489Z @@ -166,9 +168,7 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9236854Z                  payload["semantic_matches"] = (
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9237455Z                      [match.model_dump() for match in semantic_matches] if semantic_matches is not None else None
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9238039Z                  )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9238374Z -            typer.echo(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9238756Z -                json.dumps(payload, indent=2)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9239162Z -            )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9239520Z +            typer.echo(json.dumps(payload, indent=2))
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9239943Z          else:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9240317Z              payload = result.model_dump(exclude=_HYBRID_FIELDS)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9240773Z              if semantic_retrieve:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9240974Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9241166Z --- src/circa/fingerprint.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9241563Z +++ src/circa/fingerprint.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9242157Z @@ -25,12 +25,7 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9242749Z  def normalize_environment(environment: Mapping[str, str]) -> tuple[tuple[str, str], ...]:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9243418Z      """Return environment data in a stable, case-insensitive form."""
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9243894Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9244205Z -    return tuple(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9244535Z -        sorted(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9244919Z -            (str(key).strip().lower(), str(value).strip().lower())
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9245404Z -            for key, value in environment.items()
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9245816Z -        )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9246121Z -    )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9246660Z +    return tuple(sorted((str(key).strip().lower(), str(value).strip().lower()) for key, value in environment.items()))
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9247281Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9247583Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9247933Z  def failure_fingerprint(failure: CIFailure) -> str:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9248219Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9248406Z --- src/circa/hybrid.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9248772Z +++ src/circa/hybrid.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9249120Z @@ -6,9 +6,7 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9249475Z  LLM_AGREEMENT_WEIGHT = 0.05
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9249831Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9250125Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9250512Z -def apply_hybrid_scoring(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9251209Z -    result: AnalysisResult, llm_classification: LLMClassification | None
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9252506Z -) -> AnalysisResult:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9253217Z +def apply_hybrid_scoring(result: AnalysisResult, llm_classification: LLMClassification | None) -> AnalysisResult:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9254064Z      """Attach an independent LLM opinion without overriding deterministic analysis.
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9254603Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9255100Z      Historical matches add 0.03 confidence. Matching LLM categories add up to
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9255462Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9255678Z --- src/circa/knowledge.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9256068Z +++ src/circa/knowledge.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9256701Z @@ -15,9 +15,39 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9257317Z  # in most failures and incident summaries, so they must not count as overlap.
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9258016Z  _STOPWORDS = frozenset(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9258369Z      {
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9258835Z -        "a", "after", "an", "and", "are", "as", "at", "be", "because", "been", "by", "could", "error",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9259523Z -        "failed", "failure", "for", "from", "has", "in", "is", "it", "its", "of", "on", "or", "the",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9260249Z -        "this", "to", "was", "were", "when", "while", "with",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9260688Z +        "a",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9261009Z +        "after",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9261348Z +        "an",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9261664Z +        "and",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9262161Z +        "are",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9262495Z +        "as",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9262815Z +        "at",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9263134Z +        "be",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9263460Z +        "because",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9263802Z +        "been",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9264128Z +        "by",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9264453Z +        "could",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9264777Z +        "error",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9265091Z +        "failed",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9265422Z +        "failure",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9265751Z +        "for",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9266064Z +        "from",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9266384Z +        "has",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9266699Z +        "in",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9267016Z +        "is",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9267343Z +        "it",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9267657Z +        "its",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9267982Z +        "of",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9268299Z +        "on",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9268606Z +        "or",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9268927Z +        "the",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9269242Z +        "this",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9269561Z +        "to",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9269885Z +        "was",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9270207Z +        "were",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9270526Z +        "when",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9270848Z +        "while",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9271172Z +        "with",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9271488Z      }
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9271788Z  )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9272376Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9272699Z @@ -50,11 +80,7 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9273014Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9273464Z      failure_environment = dict(normalize_environment(failure.environment))
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9274131Z      incident_environment = dict(normalize_environment(incident.environment))
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9274657Z -    score += sum(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9274994Z -        0.5
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9275388Z -        for key, value in failure_environment.items()
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9275866Z -        if incident_environment.get(key) == value
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9276281Z -    )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9276838Z +    score += sum(0.5 for key, value in failure_environment.items() if incident_environment.get(key) == value)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9277451Z      return score
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9277770Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9278065Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9278376Z @@ -68,10 +94,7 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9278720Z      if limit < 1:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9279058Z          return []
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9279372Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9279686Z -    scored = (
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9280057Z -        (incident, _score(failure, incident))
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9280496Z -        for incident in incidents
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9280867Z -    )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9281315Z +    scored = ((incident, _score(failure, incident)) for incident in incidents)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9282417Z      matches = [KeywordIncidentMatch(incident=incident, score=score) for incident, score in scored if score > 0]
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9283223Z      matches.sort(key=lambda match: (-match.score, match.incident.id))
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9283753Z      return matches[:limit]
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9283956Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9284157Z --- src/circa/semantic.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9284552Z +++ src/circa/semantic.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9284920Z @@ -96,7 +96,9 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9285307Z          if not available_incidents:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9285888Z              return []
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9286334Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9286940Z -        embeddings = self.provider.embed([failure.failure_text, *(_incident_text(item) for item in available_incidents)])
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9287642Z +        embeddings = self.provider.embed(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9288204Z +            [failure.failure_text, *(_incident_text(item) for item in available_incidents)]
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9288743Z +        )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9289191Z          if embeddings is None or len(embeddings) != len(available_incidents) + 1:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9289710Z              return None
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9290196Z          failure_embedding, incident_embeddings = embeddings[0], embeddings[1:]
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9290535Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9290739Z --- tests/test_benchmark.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9291122Z +++ tests/test_benchmark.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9291493Z @@ -19,8 +19,13 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9291807Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9292481Z  def _incident(identifier: str, keywords: list[str]) -> HistoricalIncident:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9293035Z      return HistoricalIncident(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9293545Z -        id=identifier, title=identifier, category="hardware", summary=identifier,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9294180Z -        keywords=keywords, recommendation="Investigate.", synthetic=True,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9294698Z +        id=identifier,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9295054Z +        title=identifier,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9295424Z +        category="hardware",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9295814Z +        summary=identifier,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9296188Z +        keywords=keywords,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9296566Z +        recommendation="Investigate.",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9296969Z +        synthetic=True,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9297313Z      )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9297617Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9297910Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9298219Z @@ -115,7 +120,7 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9298538Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9298971Z  def test_dataset_validation_rejects_duplicate_case_ids(tmp_path) -> None:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9299523Z      dataset = tmp_path / "duplicate.json"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9300165Z -    dataset.write_text(json.dumps({"cases": [_case("same", [] ).model_dump(), _case("same", []).model_dump()]}))
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9301008Z +    dataset.write_text(json.dumps({"cases": [_case("same", []).model_dump(), _case("same", []).model_dump()]}))
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9301593Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9302279Z      with pytest.raises(ValueError, match="Duplicate evaluation case ID 'same'"):
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9302852Z          load_evaluation_cases(dataset, [])
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9303108Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9303300Z --- tests/test_cli.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9303663Z +++ tests/test_cli.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9304003Z @@ -140,7 +140,6 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9304382Z      assert "Category: hardware" in result.output
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9304807Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9305106Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9305408Z -
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9305832Z  def test_unavailable_semantic_retrieval_is_null_in_json() -> None:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9306466Z      example = Path(__file__).parents[1] / "examples" / "hardware_failure.json"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9307159Z      with patch("circa.cli.SemanticIncidentRetriever.retrieve", return_value=None):
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9307720Z @@ -149,17 +148,25 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9308079Z      assert result.exit_code == 0
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9308553Z      assert json.loads(result.stdout)["semantic_matches"] is None
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9309014Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9309309Z +
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9309777Z  def test_benchmark_prints_retrieval_metrics_with_semantic_availability() -> None:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9310388Z      with patch("circa.cli.run_retrieval_benchmark") as run:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9311030Z          from circa.benchmark import BenchmarkMethodResult, BenchmarkReport, RetrievalMetrics
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9311590Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9312097Z          metrics = RetrievalMetrics(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9312744Z -            evaluated_cases=1, skipped_cases=0, relevant_cases=1, no_known_relevance_cases=0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9313579Z -            top_1_accuracy=1.0, recall_at_k=1.0, mean_reciprocal_rank=1.0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9314239Z -            no_result_rate=0.0, evaluation_coverage=1.0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9314692Z +            evaluated_cases=1,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9315075Z +            skipped_cases=0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9315453Z +            relevant_cases=1,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9315834Z +            no_known_relevance_cases=0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9316242Z +            top_1_accuracy=1.0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9316621Z +            recall_at_k=1.0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9317006Z +            mean_reciprocal_rank=1.0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9317413Z +            no_result_rate=0.0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9317793Z +            evaluation_coverage=1.0,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9318174Z          )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9318517Z          run.return_value = BenchmarkReport(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9318952Z -            dataset_size=1, top_k=3,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9319353Z +            dataset_size=1,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9319727Z +            top_k=3,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9320080Z              methods=[
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9320575Z                  BenchmarkMethodResult(name="keyword", status="available", metrics=metrics),
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9321283Z                  BenchmarkMethodResult(name="semantic", status="unavailable", metrics=metrics),
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9321670Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9322059Z --- tests/test_llm.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9322467Z +++ tests/test_llm.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9322814Z @@ -28,7 +28,10 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9323193Z      request = mocked_urlopen.call_args.args[0]
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9323721Z      assert request.full_url == "http://ollama.test/api/generate"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9324232Z      assert json.loads(request.data) == {
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9324809Z -        "model": "test-model", "prompt": "prompt", "stream": False, "options": {"temperature": 0}
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9325408Z +        "model": "test-model",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9325790Z +        "prompt": "prompt",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9326164Z +        "stream": False,
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9326552Z +        "options": {"temperature": 0},
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9326942Z      }
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9327249Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9327537Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9327668Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9327866Z --- tests/test_models.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9328238Z +++ tests/test_models.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9328586Z @@ -2,9 +2,7 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9328900Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9329200Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9329540Z  def test_models_parse_valid_data() -> None:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9329979Z -    failure = CIFailure.model_validate(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9330518Z -        {"failure_text": "AssertionError: expected 2", "environment": {"os": "Linux"}}
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9331036Z -    )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9331614Z +    failure = CIFailure.model_validate({"failure_text": "AssertionError: expected 2", "environment": {"os": "Linux"}})
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9332537Z      incident = HistoricalIncident.model_validate(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9332974Z          {
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9333321Z              "id": "synthetic-test-001",
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9333547Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9333752Z --- tests/test_performance.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9334146Z +++ tests/test_performance.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9334512Z @@ -36,9 +36,7 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9334827Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9335284Z  def test_firmware_signal_is_a_drift_hypothesis_requiring_human_approval() -> None:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9335870Z      assessment = analyze_performance_failure(
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9336311Z -        "PERFORMANCE THRESHOLD VIOLATION\n"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9336767Z -        "latency_p99 actual=21 ms expected<=15 ms\n"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9337217Z -        "firmware_version=2.0.1"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9337816Z +        "PERFORMANCE THRESHOLD VIOLATION\nlatency_p99 actual=21 ms expected<=15 ms\nfirmware_version=2.0.1"
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9338425Z      )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9338722Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9339050Z      assert assessment is not None
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9339262Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9339452Z --- tests/test_semantic.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9340115Z +++ tests/test_semantic.py
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9340487Z @@ -81,7 +81,9 @@
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9340989Z  def test_semantic_retrieval_returns_none_when_embedding_backend_is_unavailable() -> None:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9341606Z      provider = StaticEmbeddingProvider(None)
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9342306Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9342946Z -    assert SemanticIncidentRetriever(provider).retrieve(CIFailure(failure_text="failure"), [_incident("incident")]) is None
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9343654Z +    assert (
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9344271Z +        SemanticIncidentRetriever(provider).retrieve(CIFailure(failure_text="failure"), [_incident("incident")]) is None
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9344924Z +    )
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9345225Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9345522Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9345969Z  def test_ollama_embedding_provider_fails_gracefully_when_unavailable() -> None:
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9346338Z
+Lint (Ruff)	Ruff format check	2026-10-23T16:42:10.9357485Z ##[error]Process completed with exit code 1.

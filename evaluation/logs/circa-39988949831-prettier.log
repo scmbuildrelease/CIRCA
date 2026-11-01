@@ -1,0 +1,13 @@
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	﻿2026-10-23T16:42:09.7792473Z ##[group]Run npx --yes prettier@3.9.9 --check "**/*.{md,yml,yaml,json}"
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:09.7794542Z npx --yes prettier@3.9.9 --check "**/*.{md,yml,yaml,json}"
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:09.7972427Z shell: /usr/bin/bash -e {0}
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:09.7973647Z env:
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:09.7974619Z   PIP_DISABLE_PIP_VERSION_CHECK: 1
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:09.7976186Z   PYTHON_VERSION: 3.12
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:09.7977248Z ##[endgroup]
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:10.9511553Z Checking formatting...
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:11.0880154Z [warn] AGENTS.md
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:11.1765633Z [warn] src/circa/data/incidents.json
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:11.1941076Z [warn] src/circa/data/retrieval_evaluation.json
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:11.1942883Z [warn] Code style issues found in 3 files. Run Prettier with --write to fix.
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-10-23T16:42:11.2260394Z ##[error]Process completed with exit code 1.
