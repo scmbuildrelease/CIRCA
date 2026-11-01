@@ -685,9 +685,9 @@ python -m ruff check .
 python -m pytest
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full set of checks and pull
-request expectations, [SECURITY.md](SECURITY.md) for reporting vulnerabilities
-and handling knowledge files, and [CHANGELOG.md](CHANGELOG.md) for release
+See [CONTRIBUTING.md](https://github.com/scmbuildrelease/CIRCA/blob/main/CONTRIBUTING.md) for the full set of checks and pull
+request expectations, [SECURITY.md](https://github.com/scmbuildrelease/CIRCA/blob/main/SECURITY.md) for reporting vulnerabilities
+and handling knowledge files, and [CHANGELOG.md](https://github.com/scmbuildrelease/CIRCA/blob/main/CHANGELOG.md) for release
 notes.
 
 ### CI quality gate

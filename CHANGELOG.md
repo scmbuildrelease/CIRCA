@@ -4,6 +4,24 @@ All notable changes to CIRCA are listed here. Versions follow
 [Semantic Versioning](https://semver.org); while CIRCA is below 1.0, a minor
 version may change behavior.
 
+## 0.2.2 — 2026-11-01
+
+Packaging only; analysis behavior is unchanged.
+
+- Prepared for PyPI as `circa-ci`, because the name `circa` belongs to an
+  unrelated project. The command (`circa`) and the import name (`circa`) are
+  unchanged. If an earlier version is installed, run `pip uninstall circa`
+  before installing 0.2.2; removing it afterwards also removes the `circa`
+  command.
+- Added a manually run publishing workflow that uses PyPI trusted publishing
+  (no stored API token). It publishes only a tag that matches the package
+  version, to TestPyPI or, through the `pypi` environment, to PyPI.
+- The source distribution no longer includes the team knowledge file, tests,
+  evaluation dataset, agent instructions, or CI configuration. The build
+  backend is pinned.
+- README links to CONTRIBUTING, SECURITY, and CHANGELOG are absolute, so they
+  work on the PyPI project page.
+
 ## 0.2.1 — 2026-11-01
 
 ### Security

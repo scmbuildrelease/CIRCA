@@ -1,14 +1,29 @@
 [build-system]
-requires = ["hatchling"]
+# Pinned so release builds are reproducible.
+requires = ["hatchling==1.32.4"]
 build-backend = "hatchling.build"
 
 [project]
-name = "circa"
-version = "0.2.1"
+# "circa" on PyPI is an unrelated project; the command and import name stay "circa".
+name = "circa-ci"
+version = "0.2.2"
 description = "Continuous Integration Root Cause Analyzer"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = ["ci", "continuous-integration", "root-cause-analysis", "github-actions", "logs"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "pydantic>=2.0",
     "typer>=0.12",
@@ -59,6 +74,11 @@ exclude_dirs = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/circa"]
+
+# Only what is needed to build and use CIRCA is distributed: no real team knowledge, tests,
+# evaluation dataset, agent instructions, or CI configuration.
+[tool.hatch.build.targets.sdist]
+exclude = ["/team", "/tests", "/evaluation", "/AGENTS.md", "/.github"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/circa/data/incidents.json" = "circa/data/incidents.json"

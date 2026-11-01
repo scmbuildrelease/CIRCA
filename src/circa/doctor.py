@@ -29,7 +29,7 @@ class Check:
 
 def circa_version() -> str:
     try:
-        return version("circa")
+        return version("circa-ci")  # the distribution name; the package is imported as "circa"
     except PackageNotFoundError:
         return "unknown (not installed as a package)"
 
