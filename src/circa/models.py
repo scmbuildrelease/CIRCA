@@ -142,7 +142,7 @@ class HistoricalIncident(BaseModel):
             texts += [self.fix.validation_evidence] if self.fix.validation_evidence else []
         if self.draft_origin:
             origin = self.draft_origin
-            texts += [origin.source_log, *origin.validation_steps, *origin.missing_evidence]
+            texts += [origin.source_log, *origin.validation_steps, *origin.missing_evidence, *origin.cited_log_lines]
             texts += [*origin.related_incident_ids, *([origin.llm_model] if origin.llm_model else [])]
         return texts
 

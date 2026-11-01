@@ -311,7 +311,9 @@ def test_secrets_are_neither_sent_nor_persisted(tmp_path: Path) -> None:
     assert saved.exit_code == 0
     assert secret not in provider.prompts[0]
     assert secret not in path.read_text()
-    assert leaky.exit_code == 1 and "secret or credential pattern" in leaky.output
+    # A credential the model generated is redacted and blocks the draft before anything is saved.
+    assert leaky.exit_code == 0 and "the LLM output contained a credential" in leaky.output
+    assert secret not in leaky.output
     assert not (tmp_path / "b.json").exists()
 
 

@@ -8,7 +8,8 @@ from typer.testing import CliRunner
 
 from circa import analyzer, pipeline
 from circa.cli import app
-from circa.models import CIFailure, LLMDiagnosis
+from circa.knowledge_store import KnowledgeError, load_knowledge
+from circa.models import CIFailure, HistoricalIncident, LLMDiagnosis
 from circa.pipeline import analyze_log, investigate_log
 from circa.redaction import RedactionError, contains_secret, redact_secrets
 
@@ -22,12 +23,16 @@ GITLAB = "glpat" + "-" + "x7Y8z9W0" * 3
 AWS_ID = "AKIA" + "SYNTHETIC0EXAMPL"
 SLACK = "xoxb" + "-1234567890-abcdefghij"
 NPM = "npm" + "_" + "q7W8e9R0" * 4 + "abcd"
+PYPI = "pypi" + "-" + "AgEIcHlwaS5vcmc" + "x" * 40
+GOOGLE = "AIza" + "Sy" + "Synthetic0Key0Material0Only001234"
+OPENAI = "sk" + "-proj-" + "Synthetic0Key0Material0Only"
+ANTHROPIC = "sk" + "-ant-" + "api03-Synthetic0Key0Material0Only"
 JWT = "eyJ" + "hbGciOiJIUzI1NiJ9" + ".eyJ" + "zdWIiOiJ0ZXN0In0" + ".c2lnbmF0dXJlLXRlc3Q"
 PASSWORD = "Synth3tic" + "-Passw0rd"
 KEY_BODY = "MIIEow" + "IBAAKCAQEAsynthetic0key0material0only"
 BEGIN = "-----BEGIN RSA " + "PRIVATE KEY-----"
 END = "-----END RSA " + "PRIVATE KEY-----"
-ALL = [GITHUB, GITHUB_FINE, GITLAB, AWS_ID, SLACK, NPM, JWT, PASSWORD, KEY_BODY]
+ALL = [GITHUB, GITHUB_FINE, GITLAB, AWS_ID, SLACK, NPM, PYPI, GOOGLE, OPENAI, ANTHROPIC, JWT, PASSWORD, KEY_BODY]
 
 
 @pytest.mark.parametrize(
@@ -39,6 +44,13 @@ ALL = [GITHUB, GITHUB_FINE, GITLAB, AWS_ID, SLACK, NPM, JWT, PASSWORD, KEY_BODY]
         (f"InvalidClientTokenId: {AWS_ID} is not valid", "InvalidClientTokenId: [REDACTED] is not valid"),
         (f"post failed: {SLACK}", "post failed: [REDACTED]"),
         (f"npm ERR! 401 with {NPM}", "npm ERR! 401 with [REDACTED]"),
+        (f"twine upload failed for {PYPI}", "twine upload failed for [REDACTED]"),
+        (f"Maps request rejected for {GOOGLE}", "Maps request rejected for [REDACTED]"),
+        (
+            f"openai.AuthenticationError: Incorrect API key {OPENAI}",
+            "openai.AuthenticationError: Incorrect API key [REDACTED]",
+        ),
+        (f"anthropic 401 invalid x-api-key {ANTHROPIC}", "anthropic 401 invalid x-api-key [REDACTED]"),
         (f"jwt {JWT} rejected", "jwt [REDACTED] rejected"),
         (f"Authorization: Bearer {JWT}", "Authorization: Bearer [REDACTED]"),
         ("Authorization: token abcd1234efgh", "Authorization: token [REDACTED]"),
@@ -62,6 +74,10 @@ ALL = [GITHUB, GITHUB_FINE, GITLAB, AWS_ID, SLACK, NPM, JWT, PASSWORD, KEY_BODY]
         "aws-key-id",
         "slack",
         "npm",
+        "pypi",
+        "google",
+        "openai",
+        "anthropic",
         "jwt",
         "authorization-bearer",
         "authorization-token",
@@ -362,3 +378,156 @@ def test_multi_megabyte_logs_are_redacted_in_one_fast_pass() -> None:
     assert _leaks(redacted) == [] and redacted.count("NPM_TOKEN=[REDACTED]") == 600
     assert redacted.count("\n") == log.count("\n")
     assert elapsed < 10  # about 0.6 s locally; the bound only catches pathological slowdowns
+
+
+# Phase 17.1: draft provenance and LLM output.
+
+EXAMPLES = Path(__file__).parents[1] / "examples"
+UNKNOWN_LOG = (EXAMPLES / "demo_unknown_failure.log").read_text(encoding="utf-8")
+SIGNTOOL_LINE = "2026-10-24T09:30:07Z [ERROR] signtool rejected bundle: certificate chain expired on 2026-10-23"
+
+
+def _draft_with_cited_line(line: str, identifier: str = "team-sign-001") -> dict[str, object]:
+    return {
+        "id": identifier,
+        "title": "Signing certificate chain expired",
+        "category": "infrastructure",
+        "summary": "signtool rejected the bundle because the certificate chain expired.",
+        "recommendation": "Renew the signing certificate chain.",
+        "synthetic": False,
+        "evidence": [SIGNTOOL_LINE],
+        "draft_origin": {"source_log": "build.log", "confidence": 0.6, "cited_log_lines": [line]},
+    }
+
+
+@pytest.mark.parametrize(
+    "secret",
+    [GITHUB, f"password={PASSWORD}", f"https://ci-bot:{PASSWORD}@git.example.com"],
+    ids=["github", "password", "url"],
+)
+def test_a_secret_in_cited_log_lines_is_rejected(secret: str) -> None:
+    record = _draft_with_cited_line(f"upload failed with {secret}") | {"status": "pending_review"}
+
+    with pytest.raises(ValueError, match="secret or credential pattern"):
+        HistoricalIncident.model_validate(record)
+    assert HistoricalIncident.model_validate(_draft_with_cited_line(SIGNTOOL_LINE) | {"status": "pending_review"})
+
+
+def _write_json(path: Path, value: object) -> Path:
+    path.write_text(json.dumps(value), encoding="utf-8")
+    return path
+
+
+def test_knowledge_add_and_update_reject_a_secret_in_cited_log_lines(tmp_path: Path) -> None:
+    knowledge = tmp_path / "team.json"
+    unsafe = _write_json(tmp_path / "unsafe.json", _draft_with_cited_line(f"auth failed: {GITHUB}"))
+
+    added = runner.invoke(app, ["knowledge", "add", str(unsafe), "--knowledge", str(knowledge), "--yes"])
+    assert added.exit_code == 1 and "secret or credential pattern" in added.output
+    assert not knowledge.exists() and _leaks(added.output) == []
+
+    safe = _write_json(tmp_path / "safe.json", _draft_with_cited_line(SIGNTOOL_LINE))
+    assert runner.invoke(app, ["knowledge", "add", str(safe), "--knowledge", str(knowledge), "--yes"]).exit_code == 0
+    before = knowledge.read_bytes()
+
+    updated = runner.invoke(app, ["knowledge", "update", str(unsafe), "--knowledge", str(knowledge), "--yes"])
+    assert updated.exit_code == 1 and "secret or credential pattern" in updated.output
+    assert knowledge.read_bytes() == before and _leaks(updated.output) == []
+
+
+def test_loading_a_knowledge_file_with_a_secret_in_cited_log_lines_fails(tmp_path: Path) -> None:
+    record = _draft_with_cited_line(f"auth failed: {GITHUB}") | {"status": "pending_review"}
+    knowledge = _write_json(tmp_path / "team.json", [record])
+
+    with pytest.raises(KnowledgeError, match="secret or credential pattern") as raised:
+        load_knowledge(knowledge)
+    validated = runner.invoke(app, ["knowledge", "validate", str(knowledge)])
+
+    assert _leaks(str(raised.value)) == []
+    assert validated.exit_code == 1 and _leaks(validated.output) == []
+
+
+class _LeakyProvider:
+    """A local model stand-in that invents credentials in every generated field."""
+
+    model = "fake"
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    def diagnose(self, prompt: str) -> LLMDiagnosis:
+        self.prompts.append(prompt)
+        return LLMDiagnosis(
+            category="infrastructure",
+            confidence=0.6,
+            root_cause=f"signtool certificate chain expired; the job used {GITHUB}.",
+            evidence=[SIGNTOOL_LINE, f"auth {OPENAI}"],
+            suggested_fix=f"Renew the signtool certificate with password={PASSWORD}.",
+            validation_steps=[f"Re-run signtool with {ANTHROPIC}."],
+            missing_evidence=[f"Whether {AWS_ID} is still active."],
+        )
+
+
+def test_generated_credentials_never_leave_investigate_log() -> None:
+    investigation = investigate_log(UNKNOWN_LOG, [], _LeakyProvider(), source_name="build.log")
+
+    assert _leaks(investigation.model_dump_json()) == []
+    assert investigation.outcome == "deterministic_only" and investigation.draft is None
+    assert any("the LLM output contained a credential" in note for note in investigation.notes)
+    assert investigation.diagnosis is not None
+    assert investigation.diagnosis.root_cause == "signtool certificate chain expired; the job used [REDACTED]."
+    assert investigation.diagnosis.evidence == [SIGNTOOL_LINE]  # grounding still applies after redaction
+
+
+def test_secret_free_generated_text_still_produces_a_draft() -> None:
+    class _CleanProvider(_LeakyProvider):
+        def diagnose(self, prompt: str) -> LLMDiagnosis:
+            return LLMDiagnosis(
+                category="infrastructure",
+                confidence=0.6,
+                root_cause="signtool rejected the bundle because the certificate chain expired.",
+                evidence=[SIGNTOOL_LINE],
+                suggested_fix="Renew the signtool certificate chain.",
+            )
+
+    investigation = investigate_log(UNKNOWN_LOG, [], _CleanProvider(), source_name="build.log")
+
+    assert investigation.outcome == "new_diagnosis" and investigation.draft is not None
+
+
+def test_generated_credentials_never_reach_cli_output_or_knowledge(tmp_path: Path) -> None:
+    log = tmp_path / "build.log"
+    log.write_text(UNKNOWN_LOG, encoding="utf-8")
+    knowledge = tmp_path / "team.json"
+
+    with patch("circa.cli.OllamaProvider", return_value=_LeakyProvider()):
+        text = runner.invoke(app, ["investigate-log", str(log), "--knowledge", str(knowledge)])
+        as_json = runner.invoke(app, ["investigate-log", str(log), "--knowledge", str(knowledge), "--json"])
+
+    assert text.exit_code == 0 and as_json.exit_code == 0, text.output + as_json.output
+    assert _leaks(text.output) == [] and _leaks(as_json.output) == []
+    assert json.loads(as_json.output)["outcome"] == "deterministic_only"
+    assert not knowledge.exists()
+
+
+def test_failed_redaction_of_generated_text_fails_closed(tmp_path: Path) -> None:
+    calls = {"count": 0}
+
+    def redact_then_fail(text: str) -> str:
+        calls["count"] += 1
+        if calls["count"] > 1:  # the log is redacted; the model's output is not
+            raise RedactionError("credential redaction failed, so CIRCA stopped without using the unredacted text")
+        return redact_secrets(text)
+
+    with patch.object(pipeline, "redact_secrets", side_effect=redact_then_fail):
+        with pytest.raises(RedactionError):
+            investigate_log(UNKNOWN_LOG, [], _LeakyProvider(), source_name="build.log")
+        log = tmp_path / "build.log"
+        log.write_text(UNKNOWN_LOG, encoding="utf-8")
+        calls["count"] = 0
+        knowledge = tmp_path / "team.json"
+        with patch("circa.cli.OllamaProvider", return_value=_LeakyProvider()):
+            result = runner.invoke(app, ["investigate-log", str(log), "--knowledge", str(knowledge), "--json"])
+
+    assert result.exit_code == 1 and "credential redaction failed" in result.output
+    assert _leaks(result.output) == [] and not knowledge.exists()

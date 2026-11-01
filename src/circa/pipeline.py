@@ -270,6 +270,11 @@ def investigate_log(
             **base,
         )
 
+    # Generated text crosses the same boundary as the log: a recognized credential is redacted
+    # from everything returned, and its presence blocks the draft (the model never saw one).
+    safe_diagnosis = LLMDiagnosis.model_validate_json(redact_secrets(diagnosis.model_dump_json()))
+    generated_secret = safe_diagnosis != diagnosis
+    diagnosis = safe_diagnosis
     notes: list[str] = []
     log_tokens = _terms(failure.failure_text)
     cited = [line.strip() for line in diagnosis.evidence if _log_quote(line, lines, log_tokens)]
@@ -293,6 +298,7 @@ def investigate_log(
             (diagnosis.confidence == 0.0, "the LLM reported zero confidence"),
             (not _grounded(diagnosis.root_cause, log_tokens), "the root cause is not grounded in the log"),
             (not cited, "the LLM quoted no line that appears in the log"),
+            (generated_secret, "the LLM output contained a credential, which was redacted"),
         )
         if failed
     ]
