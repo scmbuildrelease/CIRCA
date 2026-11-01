@@ -689,8 +689,39 @@ def test_an_at_sign_url_password_never_crosses_a_security_boundary(tmp_path: Pat
     assert investigated.exit_code == 0 and analyzed.exit_code == 0
     checked = [investigated.output, analyzed.output, *provider.prompts, direct.model_dump_json()]
     assert all(_password_fragments(text, MULTI_AT_PASSWORD) == 0 for text in checked), "URL password crossed a boundary"
-    assert "https://ci-bot:[REDACTED]@git.example.com/x.git/" in json.loads(investigated.output)["evidence"][-1]
+    redacted_evidence = (
+        "https://ci-bot:[REDACTED]@git.example.com/x.git/" in json.loads(investigated.output)["evidence"][-1]
+    )
+    assert redacted_evidence, "the evidence line is missing its redacted URL"
     assert not knowledge.exists()  # the generated credential blocked the draft
 
     with pytest.raises(ValueError, match="secret or credential pattern"):
         HistoricalIncident.model_validate(_draft_with_cited_line(url_line) | {"status": "pending_review"})
+
+
+def test_a_saved_draft_citing_an_at_sign_url_keeps_no_part_of_the_password(tmp_path: Path) -> None:
+    url_line = f"2026-10-24T09:30:08Z [ERROR] fatal: unable to access 'https://ci-bot:{MULTI_AT_PASSWORD}@git.example.com/x.git/': 403"
+    log = tmp_path / "clone.log"
+    log.write_text(UNKNOWN_LOG + url_line + "\n", encoding="utf-8")
+    knowledge = tmp_path / "team.json"
+
+    class _CitingProvider(_LeakyProvider):
+        def diagnose(self, prompt: str) -> LLMDiagnosis:
+            cited = [line.strip("- ").strip() for line in prompt.splitlines() if "git.example.com" in line]
+            return LLMDiagnosis(
+                category="infrastructure",
+                confidence=0.6,
+                root_cause="signtool rejected the bundle because the certificate chain expired.",
+                evidence=[SIGNTOOL_LINE, *cited[:1]],
+                suggested_fix="Renew the signtool certificate chain.",
+            )
+
+    with patch("circa.cli.OllamaProvider", return_value=_CitingProvider()):
+        result = runner.invoke(app, ["investigate-log", str(log), "--knowledge", str(knowledge), "--json"])
+
+    saved = knowledge.read_text(encoding="utf-8")
+    assert result.exit_code == 0
+    redacted_url = "https://ci-bot:[REDACTED]@git.example.com/x.git/" in saved
+    assert redacted_url, "the saved draft is missing its redacted URL"
+    assert _password_fragments(saved, MULTI_AT_PASSWORD) == 0, "URL password reached the knowledge file"
+    assert [record.status for record in load_knowledge(knowledge).incidents] == ["pending_review"]

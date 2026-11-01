@@ -4,17 +4,24 @@ All notable changes to CIRCA are listed here. Versions follow
 [Semantic Versioning](https://semver.org); while CIRCA is below 1.0, a minor
 version may change behavior.
 
-## 0.2.1 — Unreleased
+## 0.2.1 — 2026-11-01
 
 ### Security
 
 - Fixed partial redaction of URL passwords that contain `@`. In v0.2.0,
   `https://deploy:pass@word@host/` became `https://deploy:[REDACTED]@word@host/`,
-  leaving the rest of the password in analysis, fingerprints, LLM prompts, and
-  terminal and JSON output. The whole password is now redacted, up to the last
-  `@` before the host. Knowledge files were not affected: records containing
-  such URLs were already rejected. If a CI log processed by v0.2.0 had a URL
-  password containing `@`, treat that password as exposed and rotate it.
+  leaving the part of the password after its first `@` in analysis,
+  fingerprints, LLM prompts, terminal and JSON output, and `pending_review`
+  drafts that `investigate-log` saved to a knowledge file. The whole password is
+  now redacted, up to the last `@` before the host. URL passwords without `@`
+  were fully redacted in v0.2.0 too.
+- Output already produced by v0.2.0 is not repaired automatically. If a CI log
+  you processed with v0.2.0 had a URL password containing `@`, treat that
+  password as exposed and rotate it. To find saved drafts with a leftover, run
+  `grep -cE '\[REDACTED\]@[^ /?#"]*@' path/to/incidents.json` (any count above
+  0), then edit those values to `[REDACTED]` as described in
+  [SECURITY.md](SECURITY.md#repairing-a-knowledge-file). Saved reports and
+  copied terminal output need the same review.
 - Dedup fingerprints change only for logs that contain such URLs.
 
 ## 0.2.0 — 2026-11-01
