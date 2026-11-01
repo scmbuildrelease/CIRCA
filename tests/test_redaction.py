@@ -600,3 +600,97 @@ def test_credentials_in_the_source_name_and_model_are_redacted_in_the_draft(tmp_
 
     assert result.exit_code == 0 and "Draft saved" in result.output and _leaks(result.output) == []
     assert _leaks(knowledge.read_text(encoding="utf-8")) == [] and "Synthetic0Model" not in knowledge.read_text()
+
+
+# v0.2.1: URL passwords that contain "@". The authority's last "@" separates the
+# user information from the host, so the whole password must be redacted.
+
+AT_PASSWORD = "S3cretP" + "@ssw0rdX"
+MULTI_AT_PASSWORD = "Mu1tiQ" + "@AtVal" + "@Pass9Z"
+
+
+def _password_fragments(text: str, password: str) -> int:
+    """Count the password and each of its "@"-separated pieces in ``text``, without echoing them."""
+
+    return sum(piece in text for piece in [password, *password.split("@")])
+
+
+@pytest.mark.parametrize(
+    ("template", "expected"),
+    [
+        ("https://deploy:{pw}@host/", "https://deploy:[REDACTED]@host/"),
+        ("https://deploy:{pw}@host:8443/repo.git", "https://deploy:[REDACTED]@host:8443/repo.git"),
+        (
+            "https://deploy:{pw}@host.example/p/a?ref=main&x=a@b#frag",
+            "https://deploy:[REDACTED]@host.example/p/a?ref=main&x=a@b#frag",
+        ),
+        ("https://deploy:{pw}@host?next=a@b", "https://deploy:[REDACTED]@host?next=a@b"),
+        ("postgres://app:{pw}@db:5432/main refused", "postgres://app:[REDACTED]@db:5432/main refused"),
+        (
+            "fatal: unable to access 'https://ci-bot:{pw}@git.example.com/x.git/': 403",
+            "fatal: unable to access 'https://ci-bot:[REDACTED]@git.example.com/x.git/': 403",
+        ),
+        (
+            "see https://ci:{pw}@h.example and mail ops@example.com",
+            "see https://ci:[REDACTED]@h.example and mail ops@example.com",
+        ),
+    ],
+    ids=["path", "port-path", "query-fragment", "at-in-query-without-path", "database", "git-error", "later-email"],
+)
+@pytest.mark.parametrize("password", [AT_PASSWORD, MULTI_AT_PASSWORD, PASSWORD], ids=["one-at", "multiple-at", "plain"])
+def test_url_passwords_are_fully_redacted(template: str, expected: str, password: str) -> None:
+    redacted = redact_secrets(template.format(pw=password))
+
+    assert redacted == expected
+    assert _password_fragments(redacted, password) == 0, "part of the URL password remains"
+    assert redact_secrets(redacted) == redacted
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://host.example/path?q=1#f",
+        "https://user@host.example/repo.git",
+        "ssh://git@github.com/scmbuildrelease/CIRCA.git",
+        "https://host.example:8443/a@b",
+        "https://deploy:[REDACTED]@host/",
+        "https://deploy:***@host/",
+        "https://deploy:$CI_PASSWORD@host/",
+    ],
+    ids=["no-credentials", "user-only", "ssh-user", "at-in-path", "already-redacted", "masked", "variable"],
+)
+def test_urls_without_a_password_value_are_unchanged(url: str) -> None:
+    assert redact_secrets(url) == url
+    assert not contains_secret(url)
+
+
+def test_an_at_sign_url_password_never_crosses_a_security_boundary(tmp_path: Path) -> None:
+    url_line = f"fatal: unable to access 'https://ci-bot:{MULTI_AT_PASSWORD}@git.example.com/x.git/': 403"
+    log = tmp_path / "clone.log"
+    log.write_text(UNKNOWN_LOG + f"2026-10-24T09:30:08Z [ERROR] {url_line}\n", encoding="utf-8")
+    knowledge = tmp_path / "team.json"
+
+    class _UrlEchoingProvider(_LeakyProvider):
+        def diagnose(self, prompt: str) -> LLMDiagnosis:
+            self.prompts.append(prompt)
+            return LLMDiagnosis(
+                category="infrastructure",
+                confidence=0.6,
+                root_cause=f"signtool certificate chain expired; the clone used {url_line}",
+                evidence=[SIGNTOOL_LINE],
+            )
+
+    provider = _UrlEchoingProvider()
+    with patch("circa.cli.OllamaProvider", return_value=provider):
+        investigated = runner.invoke(app, ["investigate-log", str(log), "--knowledge", str(knowledge), "--json"])
+    analyzed = runner.invoke(app, ["analyze-log", str(log), "--json"])
+    direct = investigate_log(log.read_text(encoding="utf-8"), [], _UrlEchoingProvider(), source_name="clone.log")
+
+    assert investigated.exit_code == 0 and analyzed.exit_code == 0
+    checked = [investigated.output, analyzed.output, *provider.prompts, direct.model_dump_json()]
+    assert all(_password_fragments(text, MULTI_AT_PASSWORD) == 0 for text in checked), "URL password crossed a boundary"
+    assert "https://ci-bot:[REDACTED]@git.example.com/x.git/" in json.loads(investigated.output)["evidence"][-1]
+    assert not knowledge.exists()  # the generated credential blocked the draft
+
+    with pytest.raises(ValueError, match="secret or credential pattern"):
+        HistoricalIncident.model_validate(_draft_with_cited_line(url_line) | {"status": "pending_review"})

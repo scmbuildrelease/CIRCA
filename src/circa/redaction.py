@@ -35,8 +35,9 @@ _SECRET = re.compile(
                 rf"(?:(?:\\[nr]|[A-Za-z0-9+/=])+(?:-----END {_KEY_LABEL})?|(?:{_KEY_BODY_LINE})*(?:{_KEY_END_LINE})?))"
             ),
             # "<prefix><value>" shapes: the named prefix is kept and only the value is replaced.
-            # Credentials in a URL: scheme://user:password@host keeps the user and host.
-            rf"(?P<url>\b[a-z][a-z0-9+.-]{{0,30}}://[^\s/:@'\"\\]{{0,200}}:){_NOT_MASKED}[^\s@/'\"\\]+(?=@)",
+            # Credentials in a URL: scheme://user:password@host keeps the user and host. The password may
+            # contain "@"; it ends at the authority's last "@" (before any "/", "?", or "#").
+            rf"(?P<url>\b[a-z][a-z0-9+.-]{{0,30}}://[^\s/:@'\"\\]{{0,200}}:){_NOT_MASKED}[^\s/?#'\"\\]+(?=@)",
             # Authorization headers, with or without a scheme.
             (
                 rf"(?P<header>(?i:\bauthorization)[\"']?[ \t]*[:=][ \t]*[\"']?(?:(?i:bearer|basic|token|bot)[ \t]+)?+)"
