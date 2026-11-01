@@ -49,7 +49,7 @@ What CIRCA does **not** do:
 Analyze a saved CI log (no GitHub, Ollama, or network needed):
 
 ```bash
-python3 -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git"
+python3 -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git@v0.2.0"
 circa doctor                        # check prerequisites (changes nothing)
 circa analyze-log path/to/ci.log    # deterministic analysis of any CI log
 ```
@@ -81,7 +81,7 @@ virtual environment:
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
-python -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git"
+python -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git@v0.2.0"
 circa --version
 ```
 
@@ -89,7 +89,7 @@ Other ways to install:
 
 ```bash
 # From a clone (add -e ".[dev]" to develop CIRCA itself)
-git clone https://github.com/scmbuildrelease/CIRCA.git && python -m pip install ./CIRCA
+git clone --branch v0.2.0 https://github.com/scmbuildrelease/CIRCA.git && python -m pip install ./CIRCA
 
 # From a built wheel
 python -m pip install build==1.6.1 && python -m build   # in the clone; writes dist/

@@ -4,7 +4,7 @@ All notable changes to CIRCA are listed here. Versions follow
 [Semantic Versioning](https://semver.org); while CIRCA is below 1.0, a minor
 version may change behavior.
 
-## 0.2.0 — Unreleased
+## 0.2.0 — 2026-11-01
 
 Changes since v0.1.0 (2026-10-22). CIRCA is still local-first: analysis is
 deterministic and works without any AI service, and the only runtime Python
