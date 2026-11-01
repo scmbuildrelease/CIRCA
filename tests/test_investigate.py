@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -904,7 +905,9 @@ def test_runs_reports_errors_and_validates_the_limit() -> None:
     bad_limit = runner.invoke(app, ["runs", "scmbuildrelease/CIRCA", "--limit", "0"])
 
     assert missing_gh.exit_code == 1 and "'gh' was not found" in missing_gh.output
-    assert bad_limit.exit_code == 2 and "--limit" in bad_limit.output
+    # On GitHub Actions, Rich colors usage errors and splits "--limit" into separately styled dashes.
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", bad_limit.output)
+    assert bad_limit.exit_code == 2 and "Invalid value for '--limit'" in plain
 
 
 def test_selecting_a_failed_run_interactively_reuses_the_investigation(tmp_path: Path, monkeypatch) -> None:
