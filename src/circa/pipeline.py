@@ -323,8 +323,10 @@ def investigate_log(
         "evidence": evidence,
         "root_cause": diagnosis.root_cause,
         "draft_origin": {
-            "llm_model": provider.model,
-            "source_log": source_name,
+            # Caller-supplied names cross the same boundary as the log: a credential in a file name,
+            # run URL, or model setting is redacted rather than returned or blocking the draft.
+            "llm_model": redact_secrets(provider.model),
+            "source_log": redact_secrets(source_name),
             "confidence": diagnosis.confidence,
             "validation_steps": steps,
             "missing_evidence": diagnosis.missing_evidence,

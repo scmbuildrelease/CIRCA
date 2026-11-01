@@ -531,3 +531,72 @@ def test_failed_redaction_of_generated_text_fails_closed(tmp_path: Path) -> None
 
     assert result.exit_code == 1 and "credential redaction failed" in result.output
     assert _leaks(result.output) == [] and not knowledge.exists()
+
+
+# Phase 18: legacy knowledge files and caller-supplied draft provenance.
+
+
+def test_a_legacy_record_with_a_secret_names_the_fields_but_never_the_value(tmp_path: Path) -> None:
+    record = _draft_with_cited_line(SIGNTOOL_LINE) | {
+        "status": "pending_review",
+        "evidence": [SIGNTOOL_LINE, f"ERROR: publish failed NPM_TOKEN={NPM}"],
+        "environment": {"github_auth": GITHUB},
+    }
+    knowledge = _write_json(tmp_path / "team.json", [record])
+
+    with pytest.raises(KnowledgeError) as raised:
+        load_knowledge(knowledge)
+    outputs = [
+        runner.invoke(app, ["knowledge", "validate", str(knowledge)]),
+        runner.invoke(app, ["analyze-log", str(EXAMPLES / "demo_disk_full.log"), "--knowledge", str(knowledge)]),
+        runner.invoke(app, ["doctor", "--knowledge", str(knowledge)]),
+    ]
+
+    message = str(raised.value)
+    assert "record 0" in message and "in evidence[1], environment;" in message
+    assert _leaks(message) == []
+    for result in outputs:
+        assert result.exit_code == 1 and "evidence[1], environment" in result.output and _leaks(result.output) == []
+
+
+def test_replacing_the_credential_with_the_placeholder_repairs_a_legacy_record(tmp_path: Path) -> None:
+    record = _draft_with_cited_line(SIGNTOOL_LINE) | {"status": "pending_review"}
+    unsafe = record | {"evidence": [SIGNTOOL_LINE, f"ERROR: publish failed NPM_TOKEN={NPM}"]}
+    knowledge = _write_json(tmp_path / "team.json", [unsafe])
+    assert runner.invoke(app, ["knowledge", "validate", str(knowledge)]).exit_code == 1
+
+    knowledge.write_text(knowledge.read_text(encoding="utf-8").replace(NPM, "[REDACTED]"), encoding="utf-8")
+
+    assert runner.invoke(app, ["knowledge", "validate", str(knowledge)]).exit_code == 0
+    assert load_knowledge(knowledge).incidents[0].evidence[1] == "ERROR: publish failed NPM_TOKEN=[REDACTED]"
+
+
+class _NamedProvider(_LeakyProvider):
+    model = "sk" + "-proj-" + "Synthetic0Model0Setting0Only"
+
+    def diagnose(self, prompt: str) -> LLMDiagnosis:
+        return LLMDiagnosis(
+            category="infrastructure",
+            confidence=0.6,
+            root_cause="signtool rejected the bundle because the certificate chain expired.",
+            evidence=[SIGNTOOL_LINE],
+            suggested_fix="Renew the signtool certificate chain.",
+        )
+
+
+def test_credentials_in_the_source_name_and_model_are_redacted_in_the_draft(tmp_path: Path) -> None:
+    investigation = investigate_log(UNKNOWN_LOG, [], _NamedProvider(), source_name=f"ci-{GITHUB}.log")
+
+    assert investigation.draft is not None
+    origin = investigation.draft["draft_origin"]
+    assert origin["source_log"] == "ci-[REDACTED].log" and origin["llm_model"] == "[REDACTED]"
+    assert "Synthetic0Model" not in investigation.model_dump_json() and _leaks(investigation.model_dump_json()) == []
+
+    log = tmp_path / f"ci-{GITHUB}.log"
+    log.write_text(UNKNOWN_LOG, encoding="utf-8")
+    knowledge = tmp_path / "team.json"
+    with patch("circa.cli.OllamaProvider", return_value=_NamedProvider()):
+        result = runner.invoke(app, ["investigate-log", str(log), "--knowledge", str(knowledge)])
+
+    assert result.exit_code == 0 and "Draft saved" in result.output and _leaks(result.output) == []
+    assert _leaks(knowledge.read_text(encoding="utf-8")) == [] and "Synthetic0Model" not in knowledge.read_text()

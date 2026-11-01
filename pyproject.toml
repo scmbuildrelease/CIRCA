@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "circa"
-version = "0.1.0"
+version = "0.2.0"
 description = "Continuous Integration Root Cause Analyzer"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,6 +13,11 @@ dependencies = [
     "pydantic>=2.0",
     "typer>=0.12",
 ]
+
+[project.urls]
+Homepage = "https://github.com/scmbuildrelease/CIRCA"
+Changelog = "https://github.com/scmbuildrelease/CIRCA/blob/main/CHANGELOG.md"
+Issues = "https://github.com/scmbuildrelease/CIRCA/issues"
 
 [project.optional-dependencies]
 # Linter, formatter, and type-checker versions are pinned so local runs match CI.

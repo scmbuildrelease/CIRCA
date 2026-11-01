@@ -129,22 +129,43 @@ class HistoricalIncident(BaseModel):
                 raise ValueError("a verified real incident requires a fix with validation_status 'validated'")
             if not (self.reviewed_by or "").strip():
                 raise ValueError("a verified real incident requires reviewed_by")
-        if any(contains_secret(text) for text in self._text_fields()):
-            raise ValueError("incident text matches a secret or credential pattern; redact it before storing")
+        # Name the fields, never their text, so a legacy record can be found and repaired safely.
+        flagged = list(dict.fromkeys(path for path, text in self._text_fields() if contains_secret(text)))
+        if flagged:
+            raise ValueError(
+                f"incident text matches a secret or credential pattern in {', '.join(flagged)}; "
+                "replace each credential with [REDACTED] before storing"
+            )
         return self
 
-    def _text_fields(self) -> list[str]:
-        texts = [self.id, self.title, self.summary, self.recommendation, *self.keywords, *self.evidence]
-        texts += [*self.environment.keys(), *self.environment.values()]
-        texts += [text for text in (self.root_cause, self.reviewed_by) if text]
+    def _text_fields(self) -> list[tuple[str, str]]:
+        """Every free-text field as (path, text); environment names are not used in paths."""
+
+        fields = [("id", self.id), ("title", self.title), ("summary", self.summary)]
+        fields += [("recommendation", self.recommendation), *_indexed("keywords", self.keywords)]
+        fields += _indexed("evidence", self.evidence)
+        fields += [("environment", text) for item in self.environment.items() for text in item]
+        fields += [
+            (name, text) for name, text in (("root_cause", self.root_cause), ("reviewed_by", self.reviewed_by)) if text
+        ]
         if self.fix:
-            texts += [self.fix.description, *self.fix.references]
-            texts += [self.fix.validation_evidence] if self.fix.validation_evidence else []
+            fields += [("fix.description", self.fix.description), *_indexed("fix.references", self.fix.references)]
+            fields += (
+                [("fix.validation_evidence", self.fix.validation_evidence)] if self.fix.validation_evidence else []
+            )
         if self.draft_origin:
             origin = self.draft_origin
-            texts += [origin.source_log, *origin.validation_steps, *origin.missing_evidence, *origin.cited_log_lines]
-            texts += [*origin.related_incident_ids, *([origin.llm_model] if origin.llm_model else [])]
-        return texts
+            fields += [("draft_origin.source_log", origin.source_log)]
+            fields += _indexed("draft_origin.validation_steps", origin.validation_steps)
+            fields += _indexed("draft_origin.missing_evidence", origin.missing_evidence)
+            fields += _indexed("draft_origin.cited_log_lines", origin.cited_log_lines)
+            fields += _indexed("draft_origin.related_incident_ids", origin.related_incident_ids)
+            fields += [("draft_origin.llm_model", origin.llm_model)] if origin.llm_model else []
+        return fields
+
+
+def _indexed(name: str, values: list[str]) -> list[tuple[str, str]]:
+    return [(f"{name}[{index}]", value) for index, value in enumerate(values)]
 
 
 class SemanticIncidentMatch(BaseModel):

@@ -14,6 +14,19 @@ and no AI call.
 CI log → failure evidence → deterministic analysis → verified team incidents → (optional) local LLM draft → human review
 ```
 
+What CIRCA does **not** do:
+
+- It does not fix, rerun, or change anything in your CI, and it never changes
+  thresholds or baselines.
+- It does not send logs anywhere: no cloud service, no telemetry. The optional
+  LLM is a local Ollama server.
+- It does not decide what is true on its own. AI output is only a draft, and a
+  fix counts as validated only with evidence a human reviewer supplies.
+- It does not support CI systems other than GitHub Actions (for run fetching),
+  or GitHub Enterprise. Any other CI log can still be analyzed as a local file.
+- It does not guarantee a diagnosis. When the evidence is weak it says
+  `unknown`.
+
 ## 2. Key features
 
 - **Deterministic first.** Classification comes from rules and keyword matching
@@ -33,18 +46,26 @@ CI log → failure evidence → deterministic analysis → verified team inciden
 
 ## 3. Quick start
 
+Analyze a saved CI log (no GitHub, Ollama, or network needed):
+
 ```bash
 python3 -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git"
+circa doctor                        # check prerequisites (changes nothing)
+circa analyze-log path/to/ci.log    # deterministic analysis of any CI log
+```
+
+Investigate GitHub Actions failures with your team's incident history:
+
+```bash
 gh auth login                       # once; needed only for GitHub Actions runs
 cd path/to/your/repository          # a checkout with a github.com remote
-circa doctor                        # check prerequisites (changes nothing)
 circa init                          # create team/incidents.json if missing
 circa runs                          # list recent failed runs
 circa investigate-log --knowledge team/incidents.json   # choose one and investigate it
 ```
 
-No GitHub account? Investigate a local log instead:
-`circa investigate-log path/to/ci.log`.
+New to CIRCA? The [tutorial](#tutorial) walks through the whole review cycle
+with the example logs in a clone of this repository.
 
 ## 4. Installation
 
@@ -72,7 +93,7 @@ git clone https://github.com/scmbuildrelease/CIRCA.git && python -m pip install 
 
 # From a built wheel
 python -m pip install build==1.6.1 && python -m build   # in the clone; writes dist/
-python -m pip install dist/circa-0.1.0-py3-none-any.whl
+python -m pip install dist/circa-0.2.0-py3-none-any.whl
 ```
 
 The packaged example incidents and the benchmark dataset ship inside the wheel.
@@ -305,6 +326,9 @@ a matched verified incident's validated `root_cause` is reported. `analyze` and
 ### Tutorial
 
 Copy and paste from a clone's root; `demo-team.json` is a throwaway file.
+Steps 3–6 need a local Ollama model ([section 10](#10-optional-local-llm-setup-with-ollama));
+without one, step 3 prints the deterministic analysis, creates no draft, and
+there is nothing to review.
 
 ```bash
 # 1–2. Known failure: a verified incident with a validated fix answers it, with no LLM call.
@@ -429,7 +453,8 @@ Lifecycle dates are recorded in UTC.
 ## 10. Optional local LLM setup with Ollama
 
 Ollama is used only by `investigate-log` for failures that verified history
-cannot answer (plus the explicit `--llm` and `--semantic` options of `analyze`).
+cannot answer (plus the explicit `--llm`, `--llm-classify`, and
+`--semantic-retrieve` options of `analyze`).
 Everything else works without it.
 
 ```bash
@@ -448,18 +473,18 @@ lines capped at 3,000 characters. Known failures, already-recorded failures,
 
 ## 11. CLI command reference
 
-| Command                                        | Purpose                                                                      |
-| ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| `circa --version`                              | Print the installed version                                                  |
-| `circa doctor [--knowledge PATH]`              | Check prerequisites; changes nothing                                         |
-| `circa init [--knowledge PATH]`                | Check prerequisites; create an empty knowledge file if missing               |
-| `circa runs [OWNER/REPO] [--limit N] [--json]` | List recent failed GitHub Actions runs                                       |
-| `circa investigate-log [SOURCE]`               | Investigate a log file, run URL, run ID, or (no source) a chosen failed run  |
-| `circa analyze-log LOG`                        | Deterministic analysis of a raw log; never writes knowledge                  |
-| `circa analyze FAILURE.json`                   | Analyze a structured failure (optional `--llm`, `--semantic`)                |
-| `circa knowledge …`                            | `add`, `update`, `verify`, `reject`, `supersede`, `show`, `list`, `validate` |
-| `circa benchmark [--top-k N]`                  | Measure retrieval quality on the synthetic evaluation dataset                |
-| `circa evaluate [--dataset PATH] [--json]`     | Measure deterministic classification on labeled real and synthetic failures  |
+| Command                                        | Purpose                                                                                  |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `circa --version`                              | Print the installed version                                                              |
+| `circa doctor [--knowledge PATH]`              | Check prerequisites; changes nothing                                                     |
+| `circa init [--knowledge PATH]`                | Check prerequisites; create an empty knowledge file if missing                           |
+| `circa runs [OWNER/REPO] [--limit N] [--json]` | List recent failed GitHub Actions runs                                                   |
+| `circa investigate-log [SOURCE]`               | Investigate a log file, run URL, run ID, or (no source) a chosen failed run              |
+| `circa analyze-log LOG`                        | Deterministic analysis of a raw log; never writes knowledge                              |
+| `circa analyze FAILURE.json`                   | Analyze a structured failure (optional `--llm`, `--llm-classify`, `--semantic-retrieve`) |
+| `circa knowledge …`                            | `add`, `update`, `verify`, `reject`, `supersede`, `show`, `list`, `validate`             |
+| `circa benchmark [--top-k N]`                  | Measure retrieval quality on the synthetic evaluation dataset                            |
+| `circa evaluate [--dataset PATH] [--json]`     | Measure deterministic classification on labeled real and synthetic failures              |
 
 Common `investigate-log` options: `--knowledge PATH`, `--repo OWNER/REPO`,
 `--limit N`, `--json`, `--synthetic`. Every command has `--help`.
@@ -651,12 +676,19 @@ tune rules toward known cases.
 
 ## Development
 
+Run the tests from a clone:
+
 ```bash
 git clone https://github.com/scmbuildrelease/CIRCA.git && cd CIRCA
 python -m pip install -e ".[dev]"
 python -m ruff check .
 python -m pytest
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full set of checks and pull
+request expectations, [SECURITY.md](SECURITY.md) for reporting vulnerabilities
+and handling knowledge files, and [CHANGELOG.md](CHANGELOG.md) for release
+notes.
 
 ### CI quality gate
 
