@@ -1,0 +1,13 @@
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:06.5440122Z Checking for existing tag v0.81.1 in tenstorrent/tt-metal at sha d80d9482a418cf04ddcbeecf6adb67010d3091e6...
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:06.8522628Z Tag v0.81.1 already exists at sha 07d1af713f322389f41df5b2964b401af9a5c68b, not creating it again.
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:06.8539030Z Tag v0.81.1 already exists at a different commit sha 07d1af713f322389f41df5b2964b401af9a5c68b than the current commit sha d80d9482a418cf04ddcbeecf6adb67010d3091e6.
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:07.3815986Z RequestError [HttpError]: Repository rule violations found
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:07.3816514Z 
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:07.3817395Z Cannot update this protected ref.
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:07.3817647Z 
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:07.3817748Z 
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:07.3818924Z     at /home/runner/work/_actions/actions/github-script/v7.0.1/dist/index.js:9537:21
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:07.3827208Z     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+create-tag / verify-create-new-tag	UNKNOWN STEP	2026-10-24T07:17:07.3849494Z ##[error]Unhandled error: HttpError: Repository rule violations found
+create-tag / verify-create-new-tag	UNKNOWN STEP	
+create-tag / verify-create-new-tag	UNKNOWN STEP	Cannot update this protected ref.

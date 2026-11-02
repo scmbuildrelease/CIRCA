@@ -88,8 +88,12 @@ def preserve(
     job: str | None = None,
     log_dir: Path = LOG_DIR,
     captured_at: datetime | None = None,
+    note: str | None = None,
 ) -> dict[str, Any]:
-    """Write the sanitized log and its manifest entry; refuses to overwrite either."""
+    """Write the sanitized log and its manifest entry; refuses to overwrite either.
+
+    ``note`` says how the log differs from a full ``--log-failed`` export, for example an excerpt.
+    """
 
     text, job = sanitize(log, job)
     if not evidence_observed(incident.evidence, normalized_log_lines(text)):
@@ -110,6 +114,8 @@ def preserve(
         "evidence": [redact_secrets(line) for line in incident.evidence],
         "sha256": sha256(text),
     }
+    if note:
+        entry["note"] = redact_secrets(note)
     path.write_text(text, encoding="utf-8")
     manifest_path.write_text(
         json.dumps(sorted([*manifest, entry], key=lambda e: e["file"]), indent=2, ensure_ascii=False) + "\n",
@@ -125,6 +131,7 @@ def main() -> None:
     parser.add_argument("--name", required=True, help="Short slug for the file name, such as ruff-import-sort.")
     parser.add_argument("--job", help="Job to keep when the run has several failed jobs.")
     parser.add_argument("--from-file", type=Path, help="A log already fetched with 'gh run view --log-failed'.")
+    parser.add_argument("--note", help="How the log differs from a full export, e.g. which lines an excerpt keeps.")
     args = parser.parse_args()
 
     run = parse_run_reference(args.run)
@@ -136,6 +143,7 @@ def main() -> None:
         incident=find_incident(args.incident),
         name=args.name,
         job=args.job,
+        note=args.note,
     )
     print(f"preserved {entry['file']} ({entry['job']}); review it before committing")
 

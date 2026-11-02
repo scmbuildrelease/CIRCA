@@ -47,6 +47,53 @@
     "updated": "2026-11-01"
   },
   {
+    "id": "real-circa-ci-pytest-rich-usage-assertion-001",
+    "title": "Test failed on GitHub Actions because Rich colored the CLI usage error",
+    "category": "software",
+    "summary": "test_runs_reports_errors_and_validates_the_limit asserted '--limit' in the usage error output; on GitHub Actions Rich added ANSI color codes, so the assertion failed (1 test failed).",
+    "keywords": [
+      "pytest",
+      "AssertionError",
+      "rich",
+      "ansi",
+      "usage error",
+      "--limit",
+      "test_runs_reports_errors_and_validates_the_limit"
+    ],
+    "environment": {
+      "ci": "GitHub Actions",
+      "repository": "scmbuildrelease/CIRCA",
+      "workflow": "CI",
+      "run": "41312342881",
+      "commit": "c4b5de5"
+    },
+    "recommendation": "Assert on CLI output with ANSI color codes removed, or with color disabled, so tests do not depend on the terminal.",
+    "synthetic": false,
+    "status": "verified",
+    "fingerprints": [
+      "88bf0a01bfbbbc73fdcbc618f8bf0b99c49b434923d9a917776f1026a4937466"
+    ],
+    "evidence": [
+      "Tests (Python 3.12)\tRun pytest with coverage\t2026-11-01T13:40:09.4198290Z tests/test_investigate.py:907: AssertionError",
+      "Tests (Python 3.12)\tRun pytest with coverage\t2026-11-01T13:40:09.4209335Z FAILED tests/test_investigate.py::test_runs_reports_errors_and_validates_the_limit"
+    ],
+    "root_cause": "On GitHub Actions, Rich colored the Typer usage error and split '--limit' into separately styled dashes, so the plain substring assertion at tests/test_investigate.py:907 did not match.",
+    "fix": {
+      "description": "Commit 60731a9 removed ANSI color codes before the assertion and checked for \"Invalid value for '--limit'\".",
+      "validation_status": "validated",
+      "validation_method": "reproduced_then_fixed",
+      "validation_evidence": "Run 41312342881 failed test_runs_reports_errors_and_validates_the_limit at c4b5de5. Locally the test fails at c4b5de5 only with GITHUB_ACTIONS=true and passes at fix 60731a9 with and without it. Tests (Python 3.12) passed in run 41312876040 at 60731a9.",
+      "references": [
+        "https://github.com/scmbuildrelease/CIRCA/actions/runs/41312342881",
+        "https://github.com/scmbuildrelease/CIRCA/commit/60731a9",
+        "https://github.com/scmbuildrelease/CIRCA/actions/runs/41312876040"
+      ]
+    },
+    "reviewed_by": "Iris Wang",
+    "created": "2026-11-02",
+    "updated": "2026-11-02"
+  },
+  {
     "id": "real-circa-ci-quality-gate-baseline-001",
     "title": "New CI quality gate failed on pre-existing formatting, typing, and Bandit findings",
     "category": "software",
@@ -96,6 +143,148 @@
     "reviewed_by": "Iris Wang",
     "created": "2026-10-26",
     "updated": "2026-10-26"
+  },
+  {
+    "id": "real-circa-ci-ruff-import-sort-001",
+    "title": "Ruff lint failed on an unsorted import block in a new test file",
+    "category": "software",
+    "summary": "Ruff reported I001 (import block is un-sorted or un-formatted) in tests/test_performance.py, so the lint job failed with 'Found 1 error.'",
+    "keywords": [
+      "ruff",
+      "I001",
+      "import block is un-sorted",
+      "isort",
+      "tests/test_performance.py"
+    ],
+    "environment": {
+      "ci": "GitHub Actions",
+      "repository": "scmbuildrelease/CIRCA",
+      "workflow": "CI",
+      "run": "39859422492",
+      "commit": "351979c"
+    },
+    "recommendation": "Run 'ruff check --fix' (or sort the imports) before committing new modules.",
+    "synthetic": false,
+    "status": "verified",
+    "fingerprints": [
+      "c075b4fb3a7324019a7c81f89652cb0460309a93c929b999153e9e4fc945c947"
+    ],
+    "evidence": [
+      "quality\tUNKNOWN STEP\t2026-10-22T21:42:47.1656296Z I001 [*] Import block is un-sorted or un-formatted",
+      "quality\tUNKNOWN STEP\t2026-10-22T21:42:47.1659815Z  --> tests/test_performance.py:1:1",
+      "quality\tUNKNOWN STEP\t2026-10-22T21:42:47.1669998Z Found 1 error."
+    ],
+    "root_cause": "Commit 351979c added tests/test_performance.py with its 'from circa.performance' and 'from circa.pipeline' imports above the other circa imports, which Ruff's import-sorting rule I001 rejects.",
+    "fix": {
+      "description": "Commit bee8ff2 sorted the imports in tests/test_performance.py.",
+      "validation_status": "validated",
+      "validation_method": "reproduced_then_fixed",
+      "validation_evidence": "Run 39859422492 failed with Ruff I001 in tests/test_performance.py at 351979c. Fix bee8ff2 sorted the imports; ruff check --select I reproduces I001 on 351979c's file and passes on bee8ff2's. Job 'quality' passed in run 39980112618 at bee8ff2.",
+      "references": [
+        "https://github.com/scmbuildrelease/CIRCA/actions/runs/39859422492",
+        "https://github.com/scmbuildrelease/CIRCA/commit/bee8ff2",
+        "https://github.com/scmbuildrelease/CIRCA/actions/runs/39980112618"
+      ]
+    },
+    "reviewed_by": "Iris Wang",
+    "created": "2026-11-02",
+    "updated": "2026-11-02"
+  },
+  {
+    "id": "real-circa-ci-zizmor-vulnerable-action-001",
+    "title": "zizmor rejected a pinned GitHub Action with a known vulnerability",
+    "category": "software",
+    "summary": "The workflow audit (zizmor, online mode) reported GHSA-5xjx-3w67-w9x9 for pypa/gh-action-pypi-publish v1.14.2 at publish.yml lines 86 and 106.",
+    "keywords": [
+      "zizmor",
+      "known vulnerability",
+      "GHSA-5xjx-3w67-w9x9",
+      "gh-action-pypi-publish",
+      "publish.yml"
+    ],
+    "environment": {
+      "ci": "GitHub Actions",
+      "repository": "scmbuildrelease/CIRCA",
+      "workflow": "CI",
+      "run": "41345998382",
+      "commit": "e651c26"
+    },
+    "recommendation": "Update the pinned action to the patched release (by commit SHA) and run zizmor online locally before pushing workflow changes.",
+    "synthetic": false,
+    "status": "verified",
+    "fingerprints": [
+      "bba81dda1c1fba4baf0c8150931d97c24eb6364ccccc4816e616c27fea0d18a0"
+    ],
+    "evidence": [
+      "Workflows (actionlint + zizmor)\tRun zizmor\t2026-11-01T20:16:34.4483985Z ##[error]publish.yml:86: action has a known vulnerability: GHSA-5xjx-3w67-w9x9",
+      "Workflows (actionlint + zizmor)\tRun zizmor\t2026-11-01T20:16:34.4493662Z ##[error]publish.yml:106: action has a known vulnerability: GHSA-5xjx-3w67-w9x9"
+    ],
+    "root_cause": "Commit e651c26 added .github/workflows/publish.yml pinned to pypa/gh-action-pypi-publish v1.14.2, which is affected by the critical advisory GHSA-5xjx-3w67-w9x9 (fixed in v1.14.3); the local zizmor run was offline and did not check advisories.",
+    "fix": {
+      "description": "Commit b086262 pinned pypa/gh-action-pypi-publish to v1.14.3 (7245906fb61fa33a13554f9d5fb856fe61758086).",
+      "validation_status": "validated",
+      "validation_method": "manual_verification",
+      "validation_evidence": "Run 41345998382 failed zizmor on GHSA-5xjx-3w67-w9x9 for pypa/gh-action-pypi-publish v1.14.2 at e651c26. Fix b086262 changes only that pin, to v1.14.3. Workflows (actionlint + zizmor) passed in run 41346114303 at b086262.",
+      "references": [
+        "https://github.com/scmbuildrelease/CIRCA/actions/runs/41345998382",
+        "https://github.com/scmbuildrelease/CIRCA/commit/b086262",
+        "https://github.com/scmbuildrelease/CIRCA/actions/runs/41346114303",
+        "https://github.com/advisories/GHSA-5xjx-3w67-w9x9"
+      ]
+    },
+    "reviewed_by": "Iris Wang",
+    "created": "2026-11-02",
+    "updated": "2026-11-02"
+  },
+  {
+    "id": "real-tt-metal-blaze-prefill-import-error-001",
+    "title": "Blaze prefill tests failed at collection on an import of a helper that was never added",
+    "category": "software",
+    "summary": "Nightly Blaze Models Prefill tests failed to collect test_prefill_transformer_chunked.py: ImportError for sparse_mla_overlap_gather_rows from models.demos.deepseek_v3_d_p.tt.tt_ccl. Seven test legs failed this way in run 40452853696.",
+    "keywords": [
+      "pytest",
+      "ImportError",
+      "cannot import name",
+      "sparse_mla_overlap_gather_rows",
+      "tt_ccl",
+      "test_prefill_transformer_chunked.py",
+      "collection error"
+    ],
+    "environment": {
+      "ci": "GitHub Actions",
+      "repository": "tenstorrent/tt-metal",
+      "workflow": "Blaze Models Prefill tests",
+      "run": "40452853696",
+      "job": "Galaxy-Blaze-models-prefill / (GLM-5.3-744B) chunked prefill accuracy code_debug 55k@5k + padded 15k@5k, no-trace and traced [bh_sc1]",
+      "commit": "c7b41d5c7"
+    },
+    "recommendation": "When two changes touch the same module, re-run test collection (pytest --collect-only) on the merged result; import the helper that the module actually defines.",
+    "synthetic": false,
+    "status": "verified",
+    "fingerprints": [
+      "e066e0f33ef1403ce6a692936228cabb0682a45d13c38141fb9be4bb8f822d16"
+    ],
+    "evidence": [
+      "[1,0]<stdout>:     from models.demos.deepseek_v3_d_p.tt.tt_ccl import per_axis_topology, sparse_mla_overlap_gather_rows",
+      "[1,0]<stdout>: E   ImportError: cannot import name 'sparse_mla_overlap_gather_rows' from 'models.demos.deepseek_v3_d_p.tt.tt_ccl' (/home/runner/_work/tt-metal/tt-metal/models/demos/deepseek_v3_d_p/tt/tt_ccl.py)",
+      "[1,0]<stdout>: ERROR models/demos/deepseek_v3_d_p/tests/test_prefill_transformer_chunked.py"
+    ],
+    "root_cause": "PR #62411 changed test_prefill_transformer_chunked.py to import sparse_mla_overlap_gather_rows from tt_ccl, but PR #62477, merged about two hours earlier, kept the constant _SPARSE_MLA_OVERLAP_GATHER_ROWS = 1 and never added the function; at commit c7b41d5c7 tt_ccl.py defines only the constant, so test collection failed with ImportError.",
+    "fix": {
+      "description": "Commit c30746f89 (PR #62673) made the test use _SPARSE_MLA_OVERLAP_GATHER_ROWS again. The first nightly run that included it (40635507280, head 1768d2e38) passed this job.",
+      "validation_status": "validated",
+      "validation_method": "manual_verification",
+      "validation_evidence": "Run 40452853696 (c7b41d5c7) failed collection with ImportError for sparse_mla_overlap_gather_rows; at c7b41d5c7 tt_ccl.py defines only _SPARSE_MLA_OVERLAP_GATHER_ROWS. Fix c30746f89 (PR #62673, which cites the run) imports the constant. The same GLM chunked accuracy job passed in nightly run 40635507280, whose head includes the fix.",
+      "references": [
+        "https://github.com/tenstorrent/tt-metal/actions/runs/40452853696",
+        "https://github.com/tenstorrent/tt-metal/commit/c30746f89",
+        "https://github.com/tenstorrent/tt-metal/pull/62673",
+        "https://github.com/tenstorrent/tt-metal/actions/runs/40635507280"
+      ]
+    },
+    "reviewed_by": "Iris Wang",
+    "created": "2026-11-02",
+    "updated": "2026-11-02"
   },
   {
     "id": "real-tt-metal-protected-tag-update-001",

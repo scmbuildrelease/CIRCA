@@ -38,7 +38,7 @@ class Query:
     seen_in_development: bool  # whether the log was available when the current rules were written
 
 
-# Every failed run in scmbuildrelease/CIRCA up to 2026-11-01, plus the tt-metal log already in evaluation/.
+# Every failed run in scmbuildrelease/CIRCA up to 2026-11-01, plus the tenstorrent/tt-metal cases in evaluation/logs/.
 # Whether a case is ground truth, and its expected category, come from team/incidents.json: only a verified
 # incident recorded from the same run counts.
 QUERIES = [
@@ -51,6 +51,10 @@ QUERIES = [
     Query("circa-39859422492-ruff-import-sort", "circa-39859422492-ruff-import-sort.log", "software", True),
     Query("circa-41312342881-pytest-assertion", "circa-41312342881-pytest-assertion.log", "software", True),
     Query("tt-metal-protected-tag", "tt-metal-protected-tag.log", "infrastructure", True),
+    Query("tt-metal-40072645356-protected-tag-error-step", "tt-metal-40072645356-protected-tag-error-step.log",
+          "infrastructure", False),
+    Query("tt-metal-40452853696-blaze-prefill-import-error", "tt-metal-40452853696-blaze-prefill-import-error.log",
+          "software", False),
 ]  # fmt: skip
 
 

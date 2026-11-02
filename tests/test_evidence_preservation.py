@@ -106,6 +106,14 @@ def test_preserving_a_log_removes_colors_and_other_jobs_and_redacts_credentials(
     assert holdout.read_preserved("repo-123-ruff.log", tmp_path) == (text, "example/repo#123")
 
 
+def test_an_excerpt_is_labeled_in_the_manifest(tmp_path: Path) -> None:
+    entry = preserve.preserve(_raw_log(), repository="example/repo", run="123", incident=_incident(), name="ruff",
+                              job=JOB, log_dir=tmp_path, note="Excerpt: the error block only.")  # fmt: skip
+
+    assert entry["note"] == "Excerpt: the error block only."
+    assert json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))[0]["note"] == entry["note"]
+
+
 def test_a_preserved_log_that_was_changed_or_not_listed_is_refused(tmp_path: Path) -> None:
     preserve.preserve(_raw_log(), repository="example/repo", run="123", incident=_incident(), name="ruff", job=JOB,
                       log_dir=tmp_path)  # fmt: skip

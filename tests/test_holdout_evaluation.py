@@ -39,12 +39,16 @@ def test_logs_from_one_run_are_one_incident_and_pending_records_are_not_ground_t
     assert by_id["tt-metal-protected-tag"].excluded == ["real-tt-metal-protected-tag-update-001"]
     assert not by_id["tt-metal-protected-tag"].ground_truth
     truth = summary["verified_ground_truth"]
-    # The four job logs of run 39988949831 are one incident; run 41331905922 is the other.
-    assert (truth["logs"], truth["independent_incidents"]) == ("5", "2")
+    # The four job logs of run 39988949831 are one incident; each other verified run is one more.
+    assert (truth["logs"], truth["independent_incidents"]) == ("9", "6")
+    # Two excerpts of tt-metal run 40072645356 are one pending incident, never ground truth.
+    pending = summary["not_ground_truth (no verified incident for the run)"]
+    assert (pending["logs"], pending["independent_incidents"]) == ("2", "1")
 
 
 def test_a_newly_verified_draft_is_ground_truth_and_excluded_from_its_own_evaluation() -> None:
     draft = json.loads((ROOT / "team" / "drafts" / "circa-ruff-import-sort.json").read_text(encoding="utf-8"))
+    draft["id"] = "real-circa-ci-ruff-import-sort-test-copy"  # the real record is verified already
     fix = draft["fix"] | {
         "validation_status": "validated",
         "validation_method": "manual_verification",
@@ -55,5 +59,5 @@ def test_a_newly_verified_draft_is_ground_truth_and_excluded_from_its_own_evalua
     results = holdout.evaluate([*load_knowledge(TEAM_FILE).incidents, verified])
 
     result = next(r for r in results if r.source == "scmbuildrelease/CIRCA#39859422492")
-    assert result.ground_truth and result.excluded == [verified.id]
+    assert result.ground_truth and verified.id in result.excluded
     assert verified.id not in result.ranked_matches and result.root_cause_from != verified.id

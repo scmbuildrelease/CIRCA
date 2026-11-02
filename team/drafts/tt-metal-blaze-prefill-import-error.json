@@ -1,0 +1,40 @@
+{
+  "id": "real-tt-metal-blaze-prefill-import-error-001",
+  "title": "Blaze prefill tests failed at collection on an import of a helper that was never added",
+  "category": "software",
+  "summary": "Nightly Blaze Models Prefill tests failed to collect test_prefill_transformer_chunked.py: ImportError for sparse_mla_overlap_gather_rows from models.demos.deepseek_v3_d_p.tt.tt_ccl. Seven test legs failed this way in run 40452853696.",
+  "keywords": [
+    "pytest",
+    "ImportError",
+    "cannot import name",
+    "sparse_mla_overlap_gather_rows",
+    "tt_ccl",
+    "test_prefill_transformer_chunked.py",
+    "collection error"
+  ],
+  "environment": {
+    "ci": "GitHub Actions",
+    "repository": "tenstorrent/tt-metal",
+    "workflow": "Blaze Models Prefill tests",
+    "run": "40452853696",
+    "job": "Galaxy-Blaze-models-prefill / (GLM-5.3-744B) chunked prefill accuracy code_debug 55k@5k + padded 15k@5k, no-trace and traced [bh_sc1]",
+    "commit": "c7b41d5c7"
+  },
+  "recommendation": "When two changes touch the same module, re-run test collection (pytest --collect-only) on the merged result; import the helper that the module actually defines.",
+  "synthetic": false,
+  "evidence": [
+    "[1,0]<stdout>:     from models.demos.deepseek_v3_d_p.tt.tt_ccl import per_axis_topology, sparse_mla_overlap_gather_rows",
+    "[1,0]<stdout>: E   ImportError: cannot import name 'sparse_mla_overlap_gather_rows' from 'models.demos.deepseek_v3_d_p.tt.tt_ccl' (/home/runner/_work/tt-metal/tt-metal/models/demos/deepseek_v3_d_p/tt/tt_ccl.py)",
+    "[1,0]<stdout>: ERROR models/demos/deepseek_v3_d_p/tests/test_prefill_transformer_chunked.py"
+  ],
+  "root_cause": "PR #62411 changed test_prefill_transformer_chunked.py to import sparse_mla_overlap_gather_rows from tt_ccl, but PR #62477, merged about two hours earlier, kept the constant _SPARSE_MLA_OVERLAP_GATHER_ROWS = 1 and never added the function; at commit c7b41d5c7 tt_ccl.py defines only the constant, so test collection failed with ImportError.",
+  "fix": {
+    "description": "Commit c30746f89 (PR #62673) made the test use _SPARSE_MLA_OVERLAP_GATHER_ROWS again. The first nightly run that included it (40635507280, head 1768d2e38) passed this job.",
+    "references": [
+      "https://github.com/tenstorrent/tt-metal/actions/runs/40452853696",
+      "https://github.com/tenstorrent/tt-metal/commit/c30746f89",
+      "https://github.com/tenstorrent/tt-metal/pull/62673",
+      "https://github.com/tenstorrent/tt-metal/actions/runs/40635507280"
+    ]
+  }
+}

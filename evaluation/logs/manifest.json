@@ -102,6 +102,35 @@
     "sha256": "67d9f0f4cfb6fc7608c31da1a42da71b75308066a6ee0fc98d987d00046d9914"
   },
   {
+    "file": "tt-metal-40072645356-protected-tag-error-step.log",
+    "repository": "tenstorrent/tt-metal",
+    "run": "40072645356",
+    "job": "create-tag / verify-create-new-tag",
+    "captured_at": "2026-11-02T00:47:40+00:00",
+    "incident": "real-tt-metal-protected-tag-update-001",
+    "evidence": [
+      "HttpError: Repository rule violations found",
+      "Cannot update this protected ref."
+    ],
+    "sha256": "5bef5c76c60ed717507fdae7c6287f4803b711a8320ea5f7cf74d84528dc3502",
+    "note": "Excerpt: log lines 12859-12871 of the failed job's --log-failed export (the tag check through the unhandled error). It shows the tag being moved was v0.81.1, not v0.81.1-rc2 as the earlier excerpt (tt-metal-protected-tag.log) suggests."
+  },
+  {
+    "file": "tt-metal-40452853696-blaze-prefill-import-error.log",
+    "repository": "tenstorrent/tt-metal",
+    "run": "40452853696",
+    "job": "Galaxy-Blaze-models-prefill / (GLM-5.3-744B) chunked prefill accuracy code_debug 55k@5k + padded 15k@5k, no-trace and traced [bh_sc1]",
+    "captured_at": "2026-11-02T00:47:29+00:00",
+    "incident": "real-tt-metal-blaze-prefill-import-error-001",
+    "evidence": [
+      "[1,0]<stdout>:     from models.demos.deepseek_v3_d_p.tt.tt_ccl import per_axis_topology, sparse_mla_overlap_gather_rows",
+      "[1,0]<stdout>: E   ImportError: cannot import name 'sparse_mla_overlap_gather_rows' from 'models.demos.deepseek_v3_d_p.tt.tt_ccl' (/home/runner/_work/tt-metal/tt-metal/models/demos/deepseek_v3_d_p/tt/tt_ccl.py)",
+      "[1,0]<stdout>: ERROR models/demos/deepseek_v3_d_p/tests/test_prefill_transformer_chunked.py"
+    ],
+    "sha256": "8de7db0f6aea387d2a63e5aa96f402f5701b0a469a75409f734f864870c619f7",
+    "note": "Excerpt: log lines 1466-1502 of job 122181874118 (the pytest collection error through the step's exit). The rest of the job log names self-hosted runner hosts, an internal IP address, and model storage mounts, so it is not preserved."
+  },
+  {
     "file": "tt-metal-protected-tag.log",
     "repository": "tenstorrent/tt-metal",
     "run": "40072645356",
