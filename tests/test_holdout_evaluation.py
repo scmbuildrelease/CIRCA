@@ -19,18 +19,18 @@ TEAM_FILE = ROOT / "team" / "incidents.json"
 def test_no_failure_can_match_its_own_incident_and_knowledge_is_not_written() -> None:
     before = TEAM_FILE.read_bytes()
 
-    results, skipped = holdout.evaluate(load_knowledge(TEAM_FILE).incidents, log_dir=None)
+    results = holdout.evaluate(load_knowledge(TEAM_FILE).incidents)
 
     assert TEAM_FILE.read_bytes() == before
     excluded = [r for r in results if r.excluded]
     assert excluded
     assert all(not set(r.excluded) & {*r.ranked_matches, r.matched_incident, r.root_cause_from} for r in excluded)
-    # Raw logs of unseen runs are not in the repository; without --log-dir they are reported, not guessed.
-    assert skipped == [q.id for q in holdout.QUERIES if q.log.startswith("run:")]
+    # Every case, including runs whose GitHub logs may have expired, is read from a preserved copy.
+    assert [r.id for r in results] == [q.id for q in holdout.QUERIES]
 
 
 def test_logs_from_one_run_are_one_incident_and_pending_records_are_not_ground_truth() -> None:
-    results, _ = holdout.evaluate(load_knowledge(TEAM_FILE).incidents, log_dir=None)
+    results = holdout.evaluate(load_knowledge(TEAM_FILE).incidents)
     summary = holdout.summarize(results)
 
     by_id = {r.id: r for r in results}
@@ -39,7 +39,8 @@ def test_logs_from_one_run_are_one_incident_and_pending_records_are_not_ground_t
     assert by_id["tt-metal-protected-tag"].excluded == ["real-tt-metal-protected-tag-update-001"]
     assert not by_id["tt-metal-protected-tag"].ground_truth
     truth = summary["verified_ground_truth"]
-    assert (truth["logs"], truth["independent_incidents"]) == ("4", "1")  # the four job logs of run 39988949831
+    # The four job logs of run 39988949831 are one incident; run 41331905922 is the other.
+    assert (truth["logs"], truth["independent_incidents"]) == ("5", "2")
 
 
 def test_a_newly_verified_draft_is_ground_truth_and_excluded_from_its_own_evaluation() -> None:
@@ -51,7 +52,7 @@ def test_a_newly_verified_draft_is_ground_truth_and_excluded_from_its_own_evalua
     }
     verified = HistoricalIncident.model_validate(draft | {"status": "verified", "reviewed_by": "reviewer", "fix": fix})
 
-    results, _ = holdout.evaluate([*load_knowledge(TEAM_FILE).incidents, verified], log_dir=None)
+    results = holdout.evaluate([*load_knowledge(TEAM_FILE).incidents, verified])
 
     result = next(r for r in results if r.source == "scmbuildrelease/CIRCA#39859422492")
     assert result.ground_truth and result.excluded == [verified.id]

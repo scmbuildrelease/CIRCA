@@ -1,0 +1,118 @@
+[
+  {
+    "file": "circa-39859422492-ruff-import-sort.log",
+    "repository": "scmbuildrelease/CIRCA",
+    "run": "39859422492",
+    "job": "quality",
+    "captured_at": "2026-11-01T15:06:26+00:00",
+    "incident": "real-circa-ci-ruff-import-sort-001",
+    "evidence": [
+      "quality\tUNKNOWN STEP\t2026-10-22T21:42:47.1656296Z I001 [*] Import block is un-sorted or un-formatted",
+      "quality\tUNKNOWN STEP\t2026-10-22T21:42:47.1659815Z  --> tests/test_performance.py:1:1",
+      "quality\tUNKNOWN STEP\t2026-10-22T21:42:47.1669998Z Found 1 error."
+    ],
+    "sha256": "1fda90afa0de06a4e72809f01e8f9852dd439291d9088fdefb74d97506e7080f"
+  },
+  {
+    "file": "circa-39988949831-bandit.log",
+    "repository": "scmbuildrelease/CIRCA",
+    "run": "39988949831",
+    "job": "Security (Bandit)",
+    "captured_at": "2026-11-01T15:06:26+00:00",
+    "incident": "real-circa-ci-quality-gate-baseline-001",
+    "evidence": [
+      "Security (Bandit)\tRun Bandit\t2026-10-23T16:42:13.8758687Z >> Issue: [B310:blacklist] Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+    ],
+    "sha256": "fd0f6576f5212a6c6361f857063d09333f283ee9ba5c5b0dd36f57b7d47033c0"
+  },
+  {
+    "file": "circa-39988949831-mypy.log",
+    "repository": "scmbuildrelease/CIRCA",
+    "run": "39988949831",
+    "job": "Type check (mypy)",
+    "captured_at": "2026-11-01T15:06:26+00:00",
+    "incident": "real-circa-ci-quality-gate-baseline-001",
+    "evidence": [
+      "Type check (mypy)\tRun mypy\t2026-10-23T16:42:24.2208760Z Found 9 errors in 6 files (checked 17 source files)"
+    ],
+    "sha256": "55a91d11817eb0dbe5f77f54a950c1e9398b51407867a2911d30e67dd90b8314"
+  },
+  {
+    "file": "circa-39988949831-prettier.log",
+    "repository": "scmbuildrelease/CIRCA",
+    "run": "39988949831",
+    "job": "Format (Prettier)",
+    "captured_at": "2026-11-01T15:06:26+00:00",
+    "incident": "real-circa-ci-quality-gate-baseline-001",
+    "evidence": [
+      "Format (Prettier)\tCheck Markdown, YAML, and JSON formatting\t2026-10-23T16:42:11.1942883Z [warn] Code style issues found in 3 files. Run Prettier with --write to fix."
+    ],
+    "sha256": "60ea8e6dfc4d3d657a98197e339254c8a7d3dac8ee34cd4a0ec7a61a0ed95c5d"
+  },
+  {
+    "file": "circa-39988949831-ruff-format.log",
+    "repository": "scmbuildrelease/CIRCA",
+    "run": "39988949831",
+    "job": "Lint (Ruff)",
+    "captured_at": "2026-11-01T15:06:26+00:00",
+    "incident": "real-circa-ci-quality-gate-baseline-001",
+    "evidence": [
+      "Lint (Ruff)\tRuff format check\t2026-10-23T16:42:10.9226749Z 12 files would be reformatted, 22 files already formatted"
+    ],
+    "sha256": "1e16fe9cad7205698efca5715954d3e08ecf282b65eb7af2097272b466600bde"
+  },
+  {
+    "file": "circa-41312342881-pytest-assertion.log",
+    "repository": "scmbuildrelease/CIRCA",
+    "run": "41312342881",
+    "job": "Tests (Python 3.12)",
+    "captured_at": "2026-11-01T15:06:26+00:00",
+    "incident": "real-circa-ci-pytest-rich-usage-assertion-001",
+    "evidence": [
+      "Tests (Python 3.12)\tRun pytest with coverage\t2026-11-01T13:40:09.4198290Z tests/test_investigate.py:907: AssertionError",
+      "Tests (Python 3.12)\tRun pytest with coverage\t2026-11-01T13:40:09.4209335Z FAILED tests/test_investigate.py::test_runs_reports_errors_and_validates_the_limit"
+    ],
+    "sha256": "bef5a5ead980331f87bbc378913304f9461a0f041dfdd898e0e68801dee9c30d"
+  },
+  {
+    "file": "circa-41331905922-prettier-scratch-files.log",
+    "repository": "scmbuildrelease/CIRCA",
+    "run": "41331905922",
+    "job": "Format (Prettier)",
+    "captured_at": "2026-11-02T00:21:50+00:00",
+    "incident": "real-circa-ci-prettier-scratch-files-001",
+    "evidence": [
+      "Format (Prettier)\tCheck Markdown, YAML, and JSON formatting\t2026-11-01T17:31:40.8905916Z [warn] notes.md",
+      "Format (Prettier)\tCheck Markdown, YAML, and JSON formatting\t2026-11-01T17:31:40.9915832Z [warn] release-notes.md",
+      "Format (Prettier)\tCheck Markdown, YAML, and JSON formatting\t2026-11-01T17:31:41.0204453Z [warn] Code style issues found in 2 files. Run Prettier with --write to fix."
+    ],
+    "sha256": "256f86ccf1d269d338154e07b2527fefa1d31b6aa4231bead53b8c3388066df5"
+  },
+  {
+    "file": "circa-41345998382-zizmor-advisory.log",
+    "repository": "scmbuildrelease/CIRCA",
+    "run": "41345998382",
+    "job": "Workflows (actionlint + zizmor)",
+    "captured_at": "2026-11-02T00:21:51+00:00",
+    "incident": "real-circa-ci-zizmor-vulnerable-action-001",
+    "evidence": [
+      "Workflows (actionlint + zizmor)\tRun zizmor\t2026-11-01T20:16:34.4483985Z ##[error]publish.yml:86: action has a known vulnerability: GHSA-5xjx-3w67-w9x9",
+      "Workflows (actionlint + zizmor)\tRun zizmor\t2026-11-01T20:16:34.4493662Z ##[error]publish.yml:106: action has a known vulnerability: GHSA-5xjx-3w67-w9x9"
+    ],
+    "sha256": "67d9f0f4cfb6fc7608c31da1a42da71b75308066a6ee0fc98d987d00046d9914"
+  },
+  {
+    "file": "tt-metal-protected-tag.log",
+    "repository": "tenstorrent/tt-metal",
+    "run": "40072645356",
+    "job": "create-tag / verify-create-new-tag",
+    "captured_at": "2026-11-01T15:06:26+00:00",
+    "incident": "real-tt-metal-protected-tag-update-001",
+    "evidence": [
+      "HttpError: Repository rule violations found",
+      "Cannot update this protected ref."
+    ],
+    "sha256": "51a5721069b975a975218dbefbc00c374bdb83e32bde1d79448b7c1711c2ab31",
+    "note": "Excerpt of the job log supplied by a reviewer, not a gh --log-failed export."
+  }
+]

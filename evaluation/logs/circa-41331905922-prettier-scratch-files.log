@@ -1,0 +1,12 @@
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	﻿2026-11-01T17:31:38.8085652Z ##[group]Run npx --yes prettier@3.9.9 --check "**/*.{md,yml,yaml,json}"
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:38.8086311Z npx --yes prettier@3.9.9 --check "**/*.{md,yml,yaml,json}"
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:38.8165638Z shell: /usr/bin/bash -e {0}
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:38.8166032Z env:
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:38.8166279Z   PIP_DISABLE_PIP_VERSION_CHECK: 1
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:38.8166656Z   PYTHON_VERSION: 3.12
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:38.8166925Z ##[endgroup]
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:40.6920497Z Checking formatting...
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:40.8905916Z [warn] notes.md
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:40.9915832Z [warn] release-notes.md
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:41.0204453Z [warn] Code style issues found in 2 files. Run Prettier with --write to fix.
+Format (Prettier)	Check Markdown, YAML, and JSON formatting	2026-11-01T17:31:41.0352247Z ##[error]Process completed with exit code 1.

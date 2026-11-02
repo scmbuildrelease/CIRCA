@@ -227,12 +227,7 @@ circa evaluate
 circa evaluate --dataset evaluation/quality_gate_cases.json
 circa benchmark
 
-# Real-world holdout. Raw CI logs are not stored in the repository; fetch the
-# unseen runs into a temporary directory first.
-LOGS=$(mktemp -d)
-for run in 41331905922 41345998382; do
-  gh run view "$run" -R scmbuildrelease/CIRCA --log-failed > "$LOGS/circa-$run.log"
-done
-python evaluation/holdout.py --log-dir "$LOGS"          # add --json for per-case output
-python evaluation/holdout.py                            # repository logs only; unseen runs are listed as skipped
+# Real-world holdout. Since Phase 24 the unseen runs are preserved as sanitized
+# copies in evaluation/logs/, so no fetch (and no --log-dir) is needed.
+python evaluation/holdout.py                            # add --json for per-case output
 ```

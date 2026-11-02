@@ -136,11 +136,7 @@ steps 3 and 4.
 ## Reproducing the evaluation
 
 ```bash
-LOGS=$(mktemp -d)
-for run in 41331905922 41345998382; do
-  gh run view "$run" -R scmbuildrelease/CIRCA --log-failed > "$LOGS/circa-$run.log"
-done
-python evaluation/holdout.py --log-dir "$LOGS"   # real-world, leave-one-run-out; --json for details
+python evaluation/holdout.py   # real-world, leave-one-run-out, from preserved logs (Phase 24); --json for details
 circa evaluate                                    # synthetic and packaged-only classification
 circa benchmark                                   # synthetic retrieval
 ```
