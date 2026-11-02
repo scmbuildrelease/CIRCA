@@ -1,0 +1,36 @@
+{
+  "id": "real-circa-ci-ruff-import-sort-001",
+  "title": "Ruff lint failed on an unsorted import block in a new test file",
+  "category": "software",
+  "summary": "Ruff reported I001 (import block is un-sorted or un-formatted) in tests/test_performance.py, so the lint job failed with 'Found 1 error.'",
+  "keywords": [
+    "ruff",
+    "I001",
+    "import block is un-sorted",
+    "isort",
+    "tests/test_performance.py"
+  ],
+  "environment": {
+    "ci": "GitHub Actions",
+    "repository": "scmbuildrelease/CIRCA",
+    "workflow": "CI",
+    "run": "39859422492",
+    "commit": "351979c"
+  },
+  "recommendation": "Run 'ruff check --fix' (or sort the imports) before committing new modules.",
+  "synthetic": false,
+  "evidence": [
+    "quality\tUNKNOWN STEP\t2026-10-22T21:42:47.1656296Z I001 [*] Import block is un-sorted or un-formatted",
+    "quality\tUNKNOWN STEP\t2026-10-22T21:42:47.1659815Z  --> tests/test_performance.py:1:1",
+    "quality\tUNKNOWN STEP\t2026-10-22T21:42:47.1669998Z Found 1 error."
+  ],
+  "root_cause": "Commit 351979c added tests/test_performance.py with its 'from circa.performance' and 'from circa.pipeline' imports above the other circa imports, which Ruff's import-sorting rule I001 rejects.",
+  "fix": {
+    "description": "Commit bee8ff2 sorted the imports in tests/test_performance.py.",
+    "references": [
+      "https://github.com/scmbuildrelease/CIRCA/actions/runs/39859422492",
+      "https://github.com/scmbuildrelease/CIRCA/commit/bee8ff2",
+      "https://github.com/scmbuildrelease/CIRCA/actions/runs/39980112618"
+    ]
+  }
+}

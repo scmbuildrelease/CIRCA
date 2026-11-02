@@ -35,41 +35,43 @@ _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 class Query:
     id: str
     log: str  # relative to evaluation/, or "run:<id>" for a log fetched into --log-dir
-    expected_category: CauseCategory
-    held_out: str | None  # the team incident this failure is the source of; removed before searching
-    label: str  # verified_incident, fix_validated, or pending_review
+    source: str  # "owner/repo#run": logs from one run are one incident
+    expected_category: CauseCategory  # used only when no verified team incident records this run
     seen_in_development: bool  # whether the log was available when the current rules were written
 
 
 # Every failed run in scmbuildrelease/CIRCA up to 2026-11-01, plus the tt-metal log already in evaluation/.
+# Whether a case is ground truth, and its expected category, come from team/incidents.json: only a verified
+# incident recorded from the same run counts.
 QUERIES = [
-    Query("circa-39988949831-prettier", "logs/circa-39988949831-prettier.log", "software",
-          "real-circa-ci-quality-gate-baseline-001", "verified_incident", True),
-    Query("circa-39988949831-ruff-format", "logs/circa-39988949831-ruff-format.log", "software",
-          "real-circa-ci-quality-gate-baseline-001", "verified_incident", True),
-    Query("circa-39988949831-bandit", "logs/circa-39988949831-bandit.log", "software",
-          "real-circa-ci-quality-gate-baseline-001", "verified_incident", True),
-    Query("circa-39988949831-mypy", "logs/circa-39988949831-mypy.log", "software",
-          "real-circa-ci-quality-gate-baseline-001", "verified_incident", True),
-    Query("circa-41331905922-prettier-scratch-files", "run:41331905922", "software",
-          "real-circa-ci-prettier-scratch-files-001", "verified_incident", False),
-    Query("circa-41345998382-zizmor-advisory", "run:41345998382", "software",
-          None, "fix_validated", False),
-    Query("circa-39859422492-ruff-import-sort", "logs/circa-39859422492-ruff-import-sort.log", "software",
-          None, "pending_review", True),
-    Query("circa-41312342881-pytest-assertion", "logs/circa-41312342881-pytest-assertion.log", "software",
-          None, "pending_review", True),
-    Query("tt-metal-protected-tag", "logs/tt-metal-protected-tag.log", "infrastructure",
-          "real-tt-metal-protected-tag-update-001", "pending_review", True),
+    Query("circa-39988949831-prettier", "logs/circa-39988949831-prettier.log",
+          "scmbuildrelease/CIRCA#39988949831", "software", True),
+    Query("circa-39988949831-ruff-format", "logs/circa-39988949831-ruff-format.log",
+          "scmbuildrelease/CIRCA#39988949831", "software", True),
+    Query("circa-39988949831-bandit", "logs/circa-39988949831-bandit.log",
+          "scmbuildrelease/CIRCA#39988949831", "software", True),
+    Query("circa-39988949831-mypy", "logs/circa-39988949831-mypy.log",
+          "scmbuildrelease/CIRCA#39988949831", "software", True),
+    Query("circa-41331905922-prettier-scratch-files", "run:41331905922",
+          "scmbuildrelease/CIRCA#41331905922", "software", False),
+    Query("circa-41345998382-zizmor-advisory", "run:41345998382",
+          "scmbuildrelease/CIRCA#41345998382", "software", False),
+    Query("circa-39859422492-ruff-import-sort", "logs/circa-39859422492-ruff-import-sort.log",
+          "scmbuildrelease/CIRCA#39859422492", "software", True),
+    Query("circa-41312342881-pytest-assertion", "logs/circa-41312342881-pytest-assertion.log",
+          "scmbuildrelease/CIRCA#41312342881", "software", True),
+    Query("tt-metal-protected-tag", "logs/tt-metal-protected-tag.log",
+          "tenstorrent/tt-metal#40072645356", "infrastructure", True),
 ]  # fmt: skip
 
 
 @dataclass
 class QueryResult:
     id: str
-    label: str
+    source: str
+    ground_truth: bool  # a verified team incident records this run
     seen_in_development: bool
-    held_out: str | None
+    excluded: list[str]  # team incidents recorded from this run, removed before searching
     expected_category: str
     predicted_category: str
     category_correct: bool
@@ -90,6 +92,17 @@ def _read_log(query: Query, log_dir: Path | None) -> str | None:
     return (ROOT / "evaluation" / query.log).read_text(encoding="utf-8")
 
 
+def recorded_from(incident: HistoricalIncident, source: str) -> bool:
+    """Whether a team incident was recorded from this run: its environment or a fix reference names it."""
+
+    repository, run = source.split("#")
+    environment = incident.environment
+    if environment.get("repository") == repository and environment.get("run") == run:
+        return True
+    references = incident.fix.references if incident.fix else []
+    return any(f"github.com/{repository}/actions/runs/{run}" in reference for reference in references)
+
+
 def evaluate(team: list[HistoricalIncident], log_dir: Path | None) -> tuple[list[QueryResult], list[str]]:
     team_ids = {incident.id for incident in team}
     root_causes = {incident.root_cause: incident.id for incident in team if incident.root_cause}
@@ -100,24 +113,29 @@ def evaluate(team: list[HistoricalIncident], log_dir: Path | None) -> tuple[list
         if raw_log is None:
             skipped.append(query.id)
             continue
-        remaining = [incident for incident in team if incident.id != query.held_out]
-        assert all(incident.id != query.held_out for incident in remaining)
+        own = [incident for incident in team if recorded_from(incident, query.source)]
+        verified = [incident for incident in own if incident.status == "verified"]
+        excluded = {incident.id for incident in own}
+        remaining = [incident for incident in team if incident.id not in excluded]
         investigation = investigate_log(raw_log, remaining, None, source_name=query.id)
         matches = investigation.analysis.matched_incident_ids
         matched = investigation.matched_incident
-        assert query.held_out not in matches and (matched is None or matched.id != query.held_out)
+        root_cause_from = root_causes.get(investigation.analysis.root_cause)
+        assert not excluded & {*matches, matched.id if matched else None, root_cause_from}
+        expected = verified[0].category if verified else query.expected_category
         results.append(
             QueryResult(
                 id=query.id,
-                label=query.label,
+                source=query.source,
+                ground_truth=bool(verified),
                 seen_in_development=query.seen_in_development,
-                held_out=query.held_out,
-                expected_category=query.expected_category,
+                excluded=sorted(excluded),
+                expected_category=expected,
                 predicted_category=investigation.analysis.category,
-                category_correct=investigation.analysis.category == query.expected_category,
+                category_correct=investigation.analysis.category == expected,
                 ranked_matches=matches,
                 team_matches=[incident_id for incident_id in matches if incident_id in team_ids],
-                root_cause_from=root_causes.get(investigation.analysis.root_cause),
+                root_cause_from=root_cause_from,
                 outcome=investigation.outcome,
                 matched_incident=matched.id if matched else None,
                 match_reason=investigation.match_reason,
@@ -131,30 +149,38 @@ def _fraction(count: int, total: int) -> str:
 
 
 def summarize(results: list[QueryResult]) -> dict[str, dict[str, str]]:
-    """Metrics per group. No held-out failure has another relevant team incident, so any team match is false."""
+    """Metrics per group, over logs and over independent incidents (logs from one run are one incident).
 
+    An incident counts as correct only if all of its logs are, and as a false match if any of its logs is.
+    No held-out failure has another relevant team incident, so any team match is false.
+    """
+
+    checks = {
+        "category_correct": lambda r: r.category_correct,
+        "unknown_category": lambda r: r.predicted_category == "unknown",
+        "team_incident_matched (all false)": lambda r: bool(r.team_matches),
+        "other_incident_root_cause_reported (wrong)": lambda r: r.root_cause_from is not None,
+        "packaged_synthetic_matched (see cases.json labels)": lambda r: len(r.ranked_matches) > len(r.team_matches),
+        "known_solution_returned (wrong fix)": lambda r: r.outcome == "known_solution",
+    }
     groups = {
-        "verified_or_fix_validated": [r for r in results if r.label != "pending_review"],
-        "unseen_in_development": [r for r in results if not r.seen_in_development and r.label != "pending_review"],
-        "pending_review": [r for r in results if r.label == "pending_review"],
+        "verified_ground_truth": [r for r in results if r.ground_truth],
+        "verified_unseen_in_development": [r for r in results if r.ground_truth and not r.seen_in_development],
+        "not_ground_truth (no verified incident for the run)": [r for r in results if not r.ground_truth],
     }
     summary: dict[str, dict[str, str]] = {}
     for name, group in groups.items():
-        total = len(group)
-        summary[name] = {
-            "cases": str(total),
-            "category_accuracy": _fraction(sum(r.category_correct for r in group), total),
-            "unknown_category": _fraction(sum(r.predicted_category == "unknown" for r in group), total),
-            "team_incident_matched (all false)": _fraction(sum(bool(r.team_matches) for r in group), total),
-            "packaged_synthetic_matched (see cases.json labels)": _fraction(
-                sum(len(r.ranked_matches) > len(r.team_matches) for r in group), total
-            ),
-            "other_incident_root_cause_reported (wrong)": _fraction(
-                sum(r.root_cause_from is not None for r in group), total
-            ),
-            "no_historical_match": _fraction(sum(not r.ranked_matches for r in group), total),
-            "known_solution_returned (wrong fix)": _fraction(sum(r.outcome == "known_solution" for r in group), total),
-        }
+        incidents: dict[str, list[QueryResult]] = {}
+        for result in group:
+            incidents.setdefault(result.source, []).append(result)
+        metrics = {"logs": str(len(group)), "independent_incidents": str(len(incidents))}
+        for metric, check in checks.items():
+            per_incident = all if metric == "category_correct" else any
+            metrics[metric] = (
+                f"logs {_fraction(sum(map(check, group)), len(group))}; "
+                f"incidents {_fraction(sum(per_incident(map(check, logs)) for logs in incidents.values()), len(incidents))}"
+            )
+        summary[name] = metrics
     return summary
 
 

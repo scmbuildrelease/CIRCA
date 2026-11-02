@@ -1,0 +1,37 @@
+{
+  "id": "real-circa-ci-pytest-rich-usage-assertion-001",
+  "title": "Test failed on GitHub Actions because Rich colored the CLI usage error",
+  "category": "software",
+  "summary": "test_runs_reports_errors_and_validates_the_limit asserted '--limit' in the usage error output; on GitHub Actions Rich added ANSI color codes, so the assertion failed (1 test failed).",
+  "keywords": [
+    "pytest",
+    "AssertionError",
+    "rich",
+    "ansi",
+    "usage error",
+    "--limit",
+    "test_runs_reports_errors_and_validates_the_limit"
+  ],
+  "environment": {
+    "ci": "GitHub Actions",
+    "repository": "scmbuildrelease/CIRCA",
+    "workflow": "CI",
+    "run": "41312342881",
+    "commit": "c4b5de5"
+  },
+  "recommendation": "Assert on CLI output with ANSI color codes removed, or with color disabled, so tests do not depend on the terminal.",
+  "synthetic": false,
+  "evidence": [
+    "Tests (Python 3.12)\tRun pytest with coverage\t2026-11-01T13:40:09.4198290Z tests/test_investigate.py:907: AssertionError",
+    "Tests (Python 3.12)\tRun pytest with coverage\t2026-11-01T13:40:09.4209335Z FAILED tests/test_investigate.py::test_runs_reports_errors_and_validates_the_limit"
+  ],
+  "root_cause": "On GitHub Actions, Rich colored the Typer usage error and split '--limit' into separately styled dashes, so the plain substring assertion at tests/test_investigate.py:907 did not match.",
+  "fix": {
+    "description": "Commit 60731a9 removed ANSI color codes before the assertion and checked for \"Invalid value for '--limit'\".",
+    "references": [
+      "https://github.com/scmbuildrelease/CIRCA/actions/runs/41312342881",
+      "https://github.com/scmbuildrelease/CIRCA/commit/60731a9",
+      "https://github.com/scmbuildrelease/CIRCA/actions/runs/41312876040"
+    ]
+  }
+}

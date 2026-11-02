@@ -1,0 +1,36 @@
+{
+  "id": "real-circa-ci-zizmor-vulnerable-action-001",
+  "title": "zizmor rejected a pinned GitHub Action with a known vulnerability",
+  "category": "software",
+  "summary": "The workflow audit (zizmor, online mode) reported GHSA-5xjx-3w67-w9x9 for pypa/gh-action-pypi-publish v1.14.2 at publish.yml lines 86 and 106.",
+  "keywords": [
+    "zizmor",
+    "known vulnerability",
+    "GHSA-5xjx-3w67-w9x9",
+    "gh-action-pypi-publish",
+    "publish.yml"
+  ],
+  "environment": {
+    "ci": "GitHub Actions",
+    "repository": "scmbuildrelease/CIRCA",
+    "workflow": "CI",
+    "run": "41345998382",
+    "commit": "e651c26"
+  },
+  "recommendation": "Update the pinned action to the patched release (by commit SHA) and run zizmor online locally before pushing workflow changes.",
+  "synthetic": false,
+  "evidence": [
+    "Workflows (actionlint + zizmor)\tRun zizmor\t2026-11-01T20:16:34.4483985Z ##[error]publish.yml:86: action has a known vulnerability: GHSA-5xjx-3w67-w9x9",
+    "Workflows (actionlint + zizmor)\tRun zizmor\t2026-11-01T20:16:34.4493662Z ##[error]publish.yml:106: action has a known vulnerability: GHSA-5xjx-3w67-w9x9"
+  ],
+  "root_cause": "Commit e651c26 added .github/workflows/publish.yml pinned to pypa/gh-action-pypi-publish v1.14.2, which is affected by the critical advisory GHSA-5xjx-3w67-w9x9 (fixed in v1.14.3); the local zizmor run was offline and did not check advisories.",
+  "fix": {
+    "description": "Commit b086262 pinned pypa/gh-action-pypi-publish to v1.14.3 (7245906fb61fa33a13554f9d5fb856fe61758086).",
+    "references": [
+      "https://github.com/scmbuildrelease/CIRCA/actions/runs/41345998382",
+      "https://github.com/scmbuildrelease/CIRCA/commit/b086262",
+      "https://github.com/scmbuildrelease/CIRCA/actions/runs/41346114303",
+      "https://github.com/advisories/GHSA-5xjx-3w67-w9x9"
+    ]
+  }
+}
