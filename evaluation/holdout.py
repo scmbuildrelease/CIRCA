@@ -38,7 +38,7 @@ class Query:
     seen_in_development: bool  # whether the log was available when the current rules were written
 
 
-# Every failed run in scmbuildrelease/CIRCA up to 2026-11-01, plus the tenstorrent/tt-metal cases in evaluation/logs/.
+# Every failed run in scmbuildrelease/CIRCA up to 2026-11-01, plus the tt-metal and vLLM cases in evaluation/logs/.
 # Whether a case is ground truth, and its expected category, come from team/incidents.json: only a verified
 # incident recorded from the same run counts.
 QUERIES = [
@@ -55,6 +55,7 @@ QUERIES = [
           "infrastructure", False),
     Query("tt-metal-40452853696-blaze-prefill-import-error", "tt-metal-40452853696-blaze-prefill-import-error.log",
           "software", False),
+    Query("vllm-38672199773-macos-cpu-slot-mapping", "vllm-38672199773-macos-cpu-slot-mapping.log", "software", False),
 ]  # fmt: skip
 
 

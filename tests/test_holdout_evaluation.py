@@ -40,8 +40,8 @@ def test_logs_from_one_run_are_one_incident_and_pending_records_are_not_ground_t
     assert not by_id["tt-metal-protected-tag"].ground_truth
     truth = summary["verified_ground_truth"]
     # The four job logs of run 39988949831 are one incident; each other verified run is one more.
-    assert (truth["logs"], truth["independent_incidents"]) == ("9", "6")
-    # Two excerpts of tt-metal run 40072645356 are one pending incident, never ground truth.
+    assert (truth["logs"], truth["independent_incidents"]) == ("10", "7")
+    # Pending records are never ground truth; the two excerpts of tt-metal run 40072645356 are one incident.
     pending = summary["not_ground_truth (no verified incident for the run)"]
     assert (pending["logs"], pending["independent_incidents"]) == ("2", "1")
 

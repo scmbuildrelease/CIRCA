@@ -332,5 +332,59 @@
     },
     "created": "2026-10-26",
     "updated": "2026-10-26"
+  },
+  {
+    "id": "real-vllm-macos-cpu-slot-mapping-signature-001",
+    "title": "macOS CPU smoke test crashed: CPU slot-mapping override kept parameters the Triton kernel had dropped",
+    "category": "software",
+    "summary": "The vLLM server in the macOS Apple Silicon smoke test died on its first request: the CPU replacement for the compute-slot-mapping Triton kernel raised 'RuntimeError: Boolean value of Tensor with more than one value is ambiguous' at an assert in vllm/utils/cpu_triton_utils.py. Nightly runs failed the same way from 2026-10-10 to 2026-10-17.",
+    "keywords": [
+      "vllm",
+      "macOS",
+      "CPU backend",
+      "triton",
+      "kernel dispatcher",
+      "compute_slot_mapping",
+      "cpu_triton_utils",
+      "BLOCKS_PER_KV_BLOCK",
+      "Boolean value of Tensor with more than one value is ambiguous",
+      "signature mismatch"
+    ],
+    "environment": {
+      "ci": "GitHub Actions",
+      "repository": "vllm-project/vllm",
+      "workflow": "macOS Apple Silicon Smoke Test",
+      "run": "38672199773",
+      "job": "macos-m1-smoke-test (macos-15)",
+      "commit": "429a3da66"
+    },
+    "recommendation": "Keep CPU kernel overrides' parameter lists identical to the Triton kernel they replace (the dispatcher passes arguments by position in the kernel's order), and test the override's argument forwarding when the kernel signature changes.",
+    "synthetic": false,
+    "status": "verified",
+    "fingerprints": [
+      "ac2bf2006e35973acf666cdf4f9c8426a12c5fa70d4e304ca484aa00ff1c5401"
+    ],
+    "evidence": [
+      "File \"/Users/runner/work/vllm/vllm/vllm/utils/cpu_triton_utils.py\", line 31, in _compute_slot_mapping_kernel_impl",
+      "assert block_size * BLOCKS_PER_KV_BLOCK == KV_CACHE_BLOCK_SIZE",
+      "RuntimeError: Boolean value of Tensor with more than one value is ambiguous"
+    ],
+    "root_cause": "Commit 02e55d2af (PR #57169) removed the block_size and BLOCKS_PER_KV_BLOCK parameters from the compute-slot-mapping Triton kernel, but the CPU override _compute_slot_mapping_kernel_impl in vllm/utils/cpu_triton_utils.py kept them. The Triton dispatcher passes arguments positionally in the kernel's order, so later arguments shifted into the wrong parameters and a tensor reached 'assert block_size * BLOCKS_PER_KV_BLOCK == KV_CACHE_BLOCK_SIZE', raising the ambiguous-truth RuntimeError.",
+    "fix": {
+      "description": "Commit 556ac15eb (PR #61992) removed block_size and BLOCKS_PER_KV_BLOCK from the CPU override and added a test that it forwards the kernel's arguments. The next nightly run (39090807113, head 03ee2e134, which includes the fix) passed the macos-15 job, and every nightly through 2026-11-01 passed.",
+      "validation_status": "validated",
+      "validation_method": "manual_verification",
+      "validation_evidence": "Run 38672199773 (429a3da66) failed with RuntimeError at the assert in cpu_triton_utils._compute_slot_mapping_kernel_impl; 02e55d2af had removed block_size and BLOCKS_PER_KV_BLOCK from the Triton kernel but not from the CPU override. Fix 556ac15eb (PR #61992) removes them and adds a forwarding test. Nightlies 38018347916 and 38995700592 show the same error; the macos-15 job passed in 39090807113, whose head includes the fix, and in every nightly through 2026-11-01.",
+      "references": [
+        "https://github.com/vllm-project/vllm/actions/runs/38672199773/job/116217683766",
+        "https://github.com/vllm-project/vllm/commit/02e55d2af",
+        "https://github.com/vllm-project/vllm/commit/556ac15eb",
+        "https://github.com/vllm-project/vllm/pull/61992",
+        "https://github.com/vllm-project/vllm/actions/runs/39090807113"
+      ]
+    },
+    "reviewed_by": "Iris Wang",
+    "created": "2026-11-02",
+    "updated": "2026-11-02"
   }
 ]

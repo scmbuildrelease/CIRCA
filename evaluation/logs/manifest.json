@@ -143,5 +143,20 @@
     ],
     "sha256": "51a5721069b975a975218dbefbc00c374bdb83e32bde1d79448b7c1711c2ab31",
     "note": "Excerpt of the job log supplied by a reviewer, not a gh --log-failed export."
+  },
+  {
+    "file": "vllm-38672199773-macos-cpu-slot-mapping.log",
+    "repository": "vllm-project/vllm",
+    "run": "38672199773",
+    "job": "macos-m1-smoke-test (macos-15)",
+    "captured_at": "2026-11-02T01:13:31+00:00",
+    "incident": "real-vllm-macos-cpu-slot-mapping-signature-001",
+    "evidence": [
+      "File \"/Users/runner/work/vllm/vllm/vllm/utils/cpu_triton_utils.py\", line 31, in _compute_slot_mapping_kernel_impl",
+      "assert block_size * BLOCKS_PER_KV_BLOCK == KV_CACHE_BLOCK_SIZE",
+      "RuntimeError: Boolean value of Tensor with more than one value is ambiguous"
+    ],
+    "sha256": "1d07229eba546eac7669c76233b942a1dba86516a840e2729b752e3c0b55f503",
+    "note": "Excerpt: lines 626-794 of the job's --log-failed export (the worker exception through the step's exit). Earlier lines include the runner VM's private IP address and are not preserved. The macos-26 job of the same run failed the same way."
   }
 ]
