@@ -1,0 +1,26 @@
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:31.7685490Z Secret source: None
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:46.6950213Z ##[group]Run bazelisk build --config=remote `
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:46.6950663Z bazelisk build --config=remote `
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:46.6951071Z   --remote_header=x-buildbuddy-api-key=$env:BUILDBUDDY_API_KEY `
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:46.6951468Z   //src:bazel
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:46.7815622Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:46.7816027Z env:
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:46.7816248Z   BUILDBUDDY_API_KEY: 
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:46.7816468Z ##[endgroup]
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:50.4418526Z 2026/10/19 01:38:50 Downloading https://releases.bazel.build/9.3.0/release/bazel-9.3.0-windows-x86_64.exe...
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:51.7109420Z Extracting Bazel installation...
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:53.2147029Z Starting local Bazel server (9.3.0) and connecting to it...
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:55.9303966Z Computing main repo mapping: 
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:56.9357827Z Computing main repo mapping: 
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:57.9372727Z Computing main repo mapping: 
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:58.9436674Z Computing main repo mapping: 
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:59.1189790Z INFO: Repo rules_python+ defined by rule http_archive in @@bazel_tools//tools/build_defs/repo:http.bzl
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:59.1227687Z ERROR: C:/users/runneradmin/_bazel_runneradmin/kekrhy7a/external/bazel_tools/tools/build_defs/repo/http.bzl:203:45: An error occurred during the fetch of repository 'rules_python+':
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:59.1229429Z    Traceback (most recent call last):
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:59.1230768Z 	File "C:/users/runneradmin/_bazel_runneradmin/kekrhy7a/external/bazel_tools/tools/build_defs/repo/http.bzl", line 203, column 45, in _http_archive_impl
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:59.1232210Z 		download_info = ctx.download_and_extract(
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:59.1233604Z Error in download_and_extract: java.io.IOException: io.grpc.StatusRuntimeException: PERMISSION_DENIED: Missing API key
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:59.1251815Z ERROR: @rules_python//python/config_settings:bootstrap_impl :: Error loading option @rules_python//python/config_settings:bootstrap_impl: java.io.IOException: io.grpc.StatusRuntimeException: PERMISSION_DENIED: Missing API key
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:38:59.9443498Z Computing main repo mapping: 
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:39:09.5329107Z ERROR: The Build Event Protocol upload failed: Not retrying publishBuildEvents, no more attempts left: status='Status{code=UNAUTHENTICATED, description=failed to parse API key: missing API Key, cause=null}' UNAUTHENTICATED: UNAUTHENTICATED: failed to parse API key: missing API Key UNAUTHENTICATED: UNAUTHENTICATED: failed to parse API key: missing API Key
+windows-remote-exec	UNKNOWN STEP	2026-10-19T01:39:09.5872362Z ##[error]Process completed with exit code 1.

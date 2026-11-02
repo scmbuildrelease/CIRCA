@@ -43,7 +43,7 @@ def test_logs_from_one_run_are_one_incident_and_pending_records_are_not_ground_t
     assert (truth["logs"], truth["independent_incidents"]) == ("10", "7")
     # Pending records are never ground truth; the two excerpts of tt-metal run 40072645356 are one incident.
     pending = summary["not_ground_truth (no verified incident for the run)"]
-    assert (pending["logs"], pending["independent_incidents"]) == ("2", "1")
+    assert (pending["logs"], pending["independent_incidents"]) == ("3", "2")
 
 
 def test_a_newly_verified_draft_is_ground_truth_and_excluded_from_its_own_evaluation() -> None:

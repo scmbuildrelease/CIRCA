@@ -1,5 +1,20 @@
 [
   {
+    "file": "bazel-39186278845-fork-pr-missing-buildbuddy-key.log",
+    "repository": "bazelbuild/bazel",
+    "run": "39186278845",
+    "job": "windows-remote-exec",
+    "captured_at": "2026-11-02T13:57:01+00:00",
+    "incident": "real-bazel-fork-pr-missing-buildbuddy-key-001",
+    "evidence": [
+      "Secret source: None",
+      "--remote_header=x-buildbuddy-api-key=$env:BUILDBUDDY_API_KEY",
+      "Error in download_and_extract: java.io.IOException: io.grpc.StatusRuntimeException: PERMISSION_DENIED: Missing API key"
+    ],
+    "sha256": "401cf5278e0b6572cf22c7a965a2168d158918044a13aadaff1084bd9410faa2",
+    "note": "Excerpt of the job's --log-failed export: line 26 (job setup 'Secret source: None') and lines 198-208 and 211-224 (the bazelisk step through its exit). Lines 209-210 hold the BuildBuddy invocation ID and URL and are omitted, as are runner provisioning details."
+  },
+  {
     "file": "circa-39859422492-ruff-import-sort.log",
     "repository": "scmbuildrelease/CIRCA",
     "run": "39859422492",

@@ -650,7 +650,7 @@ def test_existing_team_knowledge_still_loads(tmp_path: Path) -> None:
 
     result = runner.invoke(app, ["knowledge", "validate", str(copy)])
 
-    assert result.exit_code == 0 and "1 pending_review" in result.output
+    assert result.exit_code == 0 and "2 pending_review" in result.output
     assert copy.read_bytes() == TEAM_FILE.read_bytes()
 
 

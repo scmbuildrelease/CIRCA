@@ -1,0 +1,46 @@
+{
+  "id": "real-bazel-fork-pr-missing-buildbuddy-key-001",
+  "title": "Fork pull request's remote-execution build was rejected: BuildBuddy API key secret was empty",
+  "category": "infrastructure",
+  "summary": "The windows-remote-exec job, from a workflow added by fork pull request #30121, ran 'bazelisk build --config=remote' with --remote_header=x-buildbuddy-api-key=$env:BUILDBUDDY_API_KEY. The job had no secrets ('Secret source: None', BUILDBUDDY_API_KEY empty), so BuildBuddy rejected the remote download of rules_python with PERMISSION_DENIED: Missing API key. Every run of this workflow on the pull request, June to October 2026, failed.",
+  "keywords": [
+    "bazel",
+    "bazelisk",
+    "BuildBuddy",
+    "remote execution",
+    "remote_header",
+    "x-buildbuddy-api-key",
+    "PERMISSION_DENIED",
+    "Missing API key",
+    "secrets",
+    "fork pull request",
+    "Windows"
+  ],
+  "environment": {
+    "ci": "GitHub Actions",
+    "repository": "bazelbuild/bazel",
+    "workflow": "Windows remote execution XML reproducer",
+    "run": "39186278845",
+    "job": "windows-remote-exec",
+    "commit": "d1686c4af",
+    "pull_request": "30121"
+  },
+  "recommendation": "Do not run credentialed remote builds on pull_request events from forks: skip the job (or fall back to a local build) when the API key is empty, and run the remote build only where secrets are available, such as after merge or on a maintainer-approved trigger. Never expose the key to untrusted fork code.",
+  "synthetic": false,
+  "evidence": [
+    "Secret source: None",
+    "--remote_header=x-buildbuddy-api-key=$env:BUILDBUDDY_API_KEY",
+    "Error in download_and_extract: java.io.IOException: io.grpc.StatusRuntimeException: PERMISSION_DENIED: Missing API key"
+  ],
+  "root_cause": "The workflow passes BUILDBUDDY_API_KEY from repository secrets to Bazel as an x-buildbuddy-api-key header, but GitHub does not give secrets to pull_request workflows from forks. The job ran with no secrets ('Secret source: None') and an empty BUILDBUDDY_API_KEY, so BuildBuddy refused the remote download with PERMISSION_DENIED: Missing API key.",
+  "fix": {
+    "description": "No fix yet: the pull request is open and every run of the workflow has failed. Proposed: skip or fall back to a local build when the key is empty, and run the remote build only where secrets are available.",
+    "validation_status": "unvalidated",
+    "references": [
+      "https://github.com/bazelbuild/bazel/actions/runs/39186278845/job/117849275213",
+      "https://github.com/bazelbuild/bazel/pull/30121",
+      "https://github.com/bazelbuild/bazel/actions/runs/31995457009",
+      "https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions#using-secrets-in-a-workflow"
+    ]
+  }
+}
