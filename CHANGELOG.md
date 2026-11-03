@@ -4,7 +4,15 @@ All notable changes to CIRCA are listed here. Versions follow
 [Semantic Versioning](https://semver.org); while CIRCA is below 1.0, a minor
 version may change behavior.
 
-## Unreleased
+## 0.3.0 — 2026-11-03
+
+### Changed
+
+- A team incident that records evidence or a root cause now informs a
+  failure's category, root cause, and recommendation only when all of its
+  recorded evidence appears in the log, including at least one distinctive line:
+  a tool's failure summary or generic CI words alone don't count. Shared keywords alone no longer carry a team incident's root
+  cause to an unrelated failure.
 
 ### Fixed
 
@@ -23,7 +31,7 @@ version may change behavior.
 ### Documentation
 
 - README installs `circa-ci` from PyPI, and its version and wheel name now
-  match the 0.2.2 release.
+  match the release (the README for 0.2.2 still showed 0.2.1).
 - Added `docs/INTERVIEW_DEMO.md`: three reproducible demos (known, unknown, and
   insufficient-evidence failures) that use temporary knowledge files.
 

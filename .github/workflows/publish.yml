@@ -1,6 +1,6 @@
 # Publishes a reviewed release tag to TestPyPI or PyPI with trusted publishing
 # (OpenID Connect): no API token is stored. Run it manually on a tag such as
-# v0.2.2. The "pypi" environment should require a reviewer's approval.
+# v0.3.0. The "pypi" environment should require a reviewer's approval.
 name: Publish
 
 on:

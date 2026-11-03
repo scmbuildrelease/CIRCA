@@ -88,7 +88,7 @@ into a virtual environment:
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
-python -m pip install circa-ci        # latest release, currently 0.2.2
+python -m pip install circa-ci        # latest release, currently 0.3.0
 circa --version
 ```
 
@@ -99,7 +99,7 @@ Other ways to install:
 
 ```bash
 # A tagged release from GitHub
-python -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git@v0.2.2"
+python -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git@v0.3.0"
 
 # From a clone: the latest main, plus the example logs used in the tutorial and demos
 # (add -e ".[dev]" to develop CIRCA itself)
@@ -107,7 +107,7 @@ git clone https://github.com/scmbuildrelease/CIRCA.git && python -m pip install 
 
 # From a built wheel
 python -m pip install build==1.6.1 && python -m build   # in the clone; writes dist/
-python -m pip install dist/circa_ci-0.2.2-py3-none-any.whl
+python -m pip install dist/circa_ci-0.3.0-py3-none-any.whl
 ```
 
 The packaged example incidents and the benchmark dataset ship inside the wheel.

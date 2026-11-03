@@ -2,7 +2,8 @@
 
 This document lists the accounts, services and repository settings outside the
 source tree that a maintainer needs to develop and publish CIRCA. It describes
-`main` at commit `831f369` (2026-11-02), seven commits after the `v0.2.2` tag.
+the 0.3.0 release (2026-11-03). Observations about accounts and environments
+were made on 2026-11-02 unless stated otherwise.
 
 It does not repeat the README. Using CIRCA, installing it, setting up the GitHub
 CLI and Ollama, running the CI checks locally and enforcing them before merge
@@ -202,17 +203,17 @@ the CI quality gates; those come from `ci.yml` on the tagged commit.
 3. **CI.** Merge only when every `ci.yml` check passes on `main`.
 4. **Tag.** Tag the merged commit and push the tag:
    ```bash
-   git tag -a v0.2.3 -m "CIRCA 0.2.3"   # must equal "v" + project.version
+   git tag -a v0.3.1 -m "CIRCA v0.3.1"   # must equal "v" + project.version
    git push origin v0.2.3
    ```
    PyPI never accepts the same version twice, so a mistake needs a new version.
 5. **Actions → Publish → Run workflow.**
-6. Under **Use workflow from**, choose **Tags → v0.2.3**, not a branch.
+6. Under **Use workflow from**, choose **Tags → v0.3.1**, not a branch.
 7. Choose **index: testpypi** and run it.
 8. **Verify** the TestPyPI release in a fresh virtual environment:
    ```bash
    python -m pip install --index-url https://test.pypi.org/simple/ \
-     --extra-index-url https://pypi.org/simple/ "circa-ci==0.2.3"
+     --extra-index-url https://pypi.org/simple/ "circa-ci==0.3.1"
    circa --version
    ```
    The extra index supplies Pydantic and Typer, which TestPyPI may not have.
@@ -312,20 +313,20 @@ Labels: **CONFIGURED IN SOURCE**, **EXTERNAL CONFIGURATION NEEDS VERIFICATION**,
 
 ### Version consistency (updated 2026-11-03)
 
-| Source                             | Version                         |
-| ---------------------------------- | ------------------------------- |
-| `pyproject.toml` `project.version` | 0.2.2                           |
-| Latest tag (local and `origin`)    | `v0.2.2` → `b086262`            |
-| PyPI and TestPyPI                  | 0.2.2                           |
-| `CHANGELOG.md`                     | 0.2.2, plus an Unreleased entry |
-| README install examples            | 0.2.2 (`circa-ci` from PyPI)    |
+For release 0.3.0, `pyproject.toml`, the README's install examples and
+`CHANGELOG.md` all say 0.3.0, and the tag is `v0.3.0`. Check the published
+side after each release:
 
-The README's install examples, wheel name (`circa_ci-0.2.2-py3-none-any.whl`)
-and PyPI instructions were corrected on 2026-11-03. Remaining discrepancies:
+```bash
+git ls-remote --tags origin v0.3.0                 # tag exists on GitHub
+gh release view v0.3.0 --repo scmbuildrelease/CIRCA
+python -m pip index versions circa-ci              # PyPI lists 0.3.0
+```
 
-1. **`main` has unreleased code.** It is past `v0.2.2`, including analyzer
-   changes from Phase 22 and the fixes listed under "Unreleased" in
-   `CHANGELOG.md`. `project.version` is still 0.2.2, so the next release needs a
-   version bump. The tag check correctly prevents publishing `main` as 0.2.2.
-   Until then, `pip install circa-ci` installs 0.2.2 without these changes.
-2. **Minor:** `v0.1.0` is a lightweight tag; later tags are annotated.
+Earlier discrepancies, kept for the record:
+
+1. The README for 0.2.2 still installed `v0.2.1` and named the wheel
+   `circa-0.2.1-py3-none-any.whl`; it didn't mention PyPI. Fixed for 0.3.0.
+2. `v0.2.2` was tagged and published to PyPI, but no GitHub Release was
+   created for it, so GitHub's "Latest" release stayed at v0.2.1.
+3. **Minor:** `v0.1.0` is a lightweight tag; later tags are annotated.

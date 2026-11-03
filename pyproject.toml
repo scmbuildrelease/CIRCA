@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 [project]
 # "circa" on PyPI is an unrelated project; the command and import name stay "circa".
 name = "circa-ci"
-version = "0.2.2"
+version = "0.3.0"
 description = "Continuous Integration Root Cause Analyzer"
 readme = "README.md"
 requires-python = ">=3.12"
