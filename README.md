@@ -46,13 +46,18 @@ What CIRCA does **not** do:
 
 ## 3. Quick start
 
-Analyze a saved CI log (no GitHub, Ollama, or network needed):
+Install the package `circa-ci` (the command is `circa`) and analyze a saved CI
+log. No GitHub, Ollama, or network access is needed after installation:
 
 ```bash
-python3 -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git@v0.2.1"
+python3 -m pip install circa-ci
 circa doctor                        # check prerequisites (changes nothing)
 circa analyze-log path/to/ci.log    # deterministic analysis of any CI log
 ```
+
+To see the whole workflow in a few minutes, follow
+[docs/INTERVIEW_DEMO.md](https://github.com/scmbuildrelease/CIRCA/blob/main/docs/INTERVIEW_DEMO.md):
+a known failure, an unknown failure, and a log with too little evidence.
 
 Investigate GitHub Actions failures with your team's incident history:
 
@@ -76,27 +81,37 @@ with the example logs in a clone of this repository.
 | [GitHub CLI](https://cli.github.com) `gh` (optional) | listing and fetching GitHub Actions runs         |
 | [Ollama](https://ollama.com) (optional)              | AI diagnosis drafts for new failures             |
 
-CIRCA's only Python dependencies are Pydantic and Typer. Install it into a
-virtual environment:
+CIRCA's only Python dependencies are Pydantic and Typer. It is published on
+PyPI as **`circa-ci`**; the name `circa` on PyPI belongs to an unrelated
+project. The command and the Python import name are both `circa`. Install it
+into a virtual environment:
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
-python -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git@v0.2.1"
+python -m pip install circa-ci        # latest release, currently 0.2.2
 circa --version
 ```
+
+If `circa` 0.2.1 or earlier is installed from GitHub, run
+`pip uninstall circa` first (see [CHANGELOG.md](https://github.com/scmbuildrelease/CIRCA/blob/main/CHANGELOG.md)).
 
 Other ways to install:
 
 ```bash
-# From a clone (add -e ".[dev]" to develop CIRCA itself)
-git clone --branch v0.2.1 https://github.com/scmbuildrelease/CIRCA.git && python -m pip install ./CIRCA
+# A tagged release from GitHub
+python -m pip install "git+https://github.com/scmbuildrelease/CIRCA.git@v0.2.2"
+
+# From a clone: the latest main, plus the example logs used in the tutorial and demos
+# (add -e ".[dev]" to develop CIRCA itself)
+git clone https://github.com/scmbuildrelease/CIRCA.git && python -m pip install ./CIRCA
 
 # From a built wheel
 python -m pip install build==1.6.1 && python -m build   # in the clone; writes dist/
-python -m pip install dist/circa-0.2.1-py3-none-any.whl
+python -m pip install dist/circa_ci-0.2.2-py3-none-any.whl
 ```
 
 The packaged example incidents and the benchmark dataset ship inside the wheel.
+The example logs in `examples/` do not; use a clone for the tutorial and demos.
 
 ## 5. GitHub CLI setup
 
@@ -566,17 +581,17 @@ before sharing them, and keep Gitleaks in CI.
 
 ## 13. Troubleshooting
 
-| Message                                                              | Fix                                                                                        |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `GitHub CLI 'gh' was not found`                                      | Install from https://cli.github.com, then `gh auth login`                                  |
-| `the GitHub CLI is not authenticated; run 'gh auth login'`           | Run `gh auth login`; check with `gh auth status`                                           |
-| `... was not found or the repository is not accessible`              | Check the URL and that your account can read the repository's Actions                      |
-| `returned no failed-step logs`                                       | The run succeeded, is still running, or its logs expired                                   |
-| `not inside a Git repository` / `no Git remote points to github.com` | Pass `OWNER/REPO` (or `--repo OWNER/REPO`)                                                 |
-| `Git remotes name different GitHub repositories`                     | Pass the one you mean: `circa runs OWNER/REPO`                                             |
-| `no run selected and no terminal to choose one`                      | Pass a run: `circa investigate-log RUN_ID --repo OWNER/REPO`                               |
-| `knowledge file not found: PATH`                                     | Create it with `circa init --knowledge PATH`, or fix the path                              |
-| `Local LLM unavailable or returned an invalid response`              | Optional: start Ollama and pull the model (`circa doctor` shows which); analysis still ran |
+| Message                                                              | Fix                                                                                                                                                                                          |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GitHub CLI 'gh' was not found`                                      | Install from https://cli.github.com, then `gh auth login`                                                                                                                                    |
+| `the GitHub CLI is not authenticated; run 'gh auth login'`           | Run `gh auth login`; check with `gh auth status`                                                                                                                                             |
+| `... was not found or the repository is not accessible`              | Check the URL and that your account can read the repository's Actions                                                                                                                        |
+| `returned no failed-step logs`                                       | The run succeeded, is still running, or its logs expired                                                                                                                                     |
+| `not inside a Git repository` / `no Git remote points to github.com` | Pass `OWNER/REPO` (or `--repo OWNER/REPO`)                                                                                                                                                   |
+| `Git remotes name different GitHub repositories`                     | Pass the one you mean: `circa runs OWNER/REPO`                                                                                                                                               |
+| `no run selected and no terminal to choose one`                      | Pass a run: `circa investigate-log RUN_ID --repo OWNER/REPO`                                                                                                                                 |
+| `knowledge file not found: PATH`                                     | Create it with `circa init --knowledge PATH`, or fix the path                                                                                                                                |
+| `Local LLM unavailable or returned an invalid response (...)`        | Optional; the note in brackets says why (server not reachable, model not installed, timeout, invalid reply). Start Ollama or pull the model (`circa doctor` shows which); analysis still ran |
 
 `circa doctor` summarizes all of these in one place.
 

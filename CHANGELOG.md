@@ -4,6 +4,29 @@ All notable changes to CIRCA are listed here. Versions follow
 [Semantic Versioning](https://semver.org); while CIRCA is below 1.0, a minor
 version may change behavior.
 
+## Unreleased
+
+### Fixed
+
+- A packaged synthetic incident no longer decides the category or supplies the
+  root cause when the log shares only ordinary words from its description. At
+  least one of the incident's declared keywords must appear. Two real logs that
+  were wrongly called `hardware` (a missing API key) and `infrastructure` (a
+  PyTorch `RuntimeError`) are now `unknown`. Results on the synthetic `evaluate`
+  datasets and `benchmark` are unchanged.
+- When the local LLM is not used, `investigate-log` now says why: no Ollama
+  server is reachable (the URL is shown without credentials), the model is not
+  installed, the request timed out, or the reply was invalid. `LLM called` is
+  now `no` when the server was unreachable or the model was not installed,
+  because no model ran.
+
+### Documentation
+
+- README installs `circa-ci` from PyPI, and its version and wheel name now
+  match the 0.2.2 release.
+- Added `docs/INTERVIEW_DEMO.md`: three reproducible demos (known, unknown, and
+  insufficient-evidence failures) that use temporary knowledge files.
+
 ## 0.2.2 — 2026-11-01
 
 Packaging only; analysis behavior is unchanged.

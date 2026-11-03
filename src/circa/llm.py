@@ -6,7 +6,7 @@ import json
 import os
 from http.client import HTTPException
 from typing import Protocol
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
@@ -66,6 +66,19 @@ class OllamaProvider:
         # scheme is treated as an unavailable backend rather than opened.
         self.available = urlsplit(self.url).scheme in {"http", "https"}
         self.timeout = timeout
+        # Why the last structured request returned nothing, and whether it reached the model at all.
+        self.last_error: str | None = None
+        self.model_ran = False
+
+    def _server(self) -> str:
+        """The server's scheme, host, and port: never a user name or password from the URL."""
+
+        parts = urlsplit(self.url)
+        try:
+            port = f":{parts.port}" if parts.port else ""
+        except ValueError:
+            port = ""
+        return f"{parts.scheme}://{parts.hostname or ''}{port}"
 
     def installed_models(self) -> list[str] | None:
         """Return the model names the server has installed (``GET /api/tags``), or ``None`` if unreachable.
@@ -112,9 +125,11 @@ class OllamaProvider:
         return explanation.strip() if isinstance(explanation, str) and explanation.strip() else None
 
     def _generate_json(self, prompt: str) -> str | None:
-        """Return Ollama's JSON-mode response text, or ``None`` when unavailable."""
+        """Return Ollama's JSON-mode response text, or ``None`` when unavailable (``last_error`` says why)."""
 
+        self.last_error, self.model_ran = None, False
         if not self.available:
+            self.last_error = "CIRCA_OLLAMA_URL is not an http:// or https:// URL"
             return None
 
         payload = json.dumps(
@@ -136,10 +151,40 @@ class OllamaProvider:
             # Bandit B310: __init__ restricts self.url to http(s).
             with urlopen(request, timeout=self.timeout) as response:  # nosec B310
                 body = json.loads(response.read().decode("utf-8"))
-        except (OSError, HTTPException, URLError, ValueError):
+        except HTTPError as error:
+            # Ollama answers 404 for a model that is not installed; it never ran.
+            self.model_ran = error.code != 404
+            self.last_error = (
+                f"model '{self.model}' is not installed on the Ollama server; run 'ollama pull {self.model}' "
+                "or set CIRCA_LLM_MODEL to an installed model ('ollama list')"
+                if error.code == 404
+                else f"the Ollama server returned HTTP {error.code}"
+            )
             return None
+        except (OSError, HTTPException, URLError, ValueError) as error:
+            reason = error.reason if isinstance(error, URLError) else error
+            if isinstance(reason, TimeoutError):
+                self.model_ran = True
+                self.last_error = f"model '{self.model}' did not reply within {self.timeout:g} seconds"
+            elif isinstance(error, (OSError, URLError)):
+                self.last_error = (
+                    f"no Ollama server is reachable at {self._server()}; start it ('ollama serve') "
+                    "or set CIRCA_OLLAMA_URL"
+                )
+            else:
+                self.model_ran = True
+                self.last_error = (
+                    "the Ollama server's reply was not valid JSON"
+                    if isinstance(error, ValueError)
+                    else "the Ollama server's reply could not be read"
+                )
+            return None
+        self.model_ran = True
         response_text = body.get("response") if isinstance(body, dict) else None
-        return response_text if isinstance(response_text, str) else None
+        if not isinstance(response_text, str):
+            self.last_error = "the Ollama server's reply had no response text"
+            return None
+        return response_text
 
     def classify(self, prompt: str) -> LLMClassification | None:
         """Return a validated structured local classification, when available."""
@@ -159,6 +204,7 @@ class OllamaProvider:
         try:
             return LLMDiagnosis.model_validate(_normalize_diagnosis_lists(json.loads(response_text)))
         except (ValueError, ValidationError):
+            self.last_error = f"model '{self.model}' did not return a valid structured diagnosis"
             return None
 
 

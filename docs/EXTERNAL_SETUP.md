@@ -310,29 +310,22 @@ Labels: **CONFIGURED IN SOURCE**, **EXTERNAL CONFIGURATION NEEDS VERIFICATION**,
 | Ollama and a local model                                  | OPTIONAL                                  | only for LLM drafts and semantic retrieval                    |
 | GitHub CLI login                                          | OPTIONAL                                  | only for GitHub run fetching                                  |
 
-### Version consistency (2026-11-02)
+### Version consistency (updated 2026-11-03)
 
-| Source                             | Version              |
-| ---------------------------------- | -------------------- |
-| `pyproject.toml` `project.version` | 0.2.2                |
-| Latest tag (local and `origin`)    | `v0.2.2` → `b086262` |
-| PyPI and TestPyPI                  | 0.2.2                |
-| `CHANGELOG.md` latest entry        | 0.2.2                |
-| README install examples            | **0.2.1**            |
+| Source                             | Version                         |
+| ---------------------------------- | ------------------------------- |
+| `pyproject.toml` `project.version` | 0.2.2                           |
+| Latest tag (local and `origin`)    | `v0.2.2` → `b086262`            |
+| PyPI and TestPyPI                  | 0.2.2                           |
+| `CHANGELOG.md`                     | 0.2.2, plus an Unreleased entry |
+| README install examples            | 0.2.2 (`circa-ci` from PyPI)    |
 
-Discrepancies, for a maintainer to resolve in a release pull request (none
-changed here):
+The README's install examples, wheel name (`circa_ci-0.2.2-py3-none-any.whl`)
+and PyPI instructions were corrected on 2026-11-03. Remaining discrepancies:
 
-1. **README pins v0.2.1.** The quick start and installation sections install
-   `git+…@v0.2.1` and clone `--branch v0.2.1`, one release behind.
-2. **README wheel name is outdated.** It shows `dist/circa-0.2.1-py3-none-any.whl`.
-   Since the rename to `circa-ci`, builds produce `circa_ci-<version>-py3-none-any.whl`.
-3. **README doesn't mention PyPI.** 0.2.2 is on PyPI as `circa-ci`, but the
-   README only shows installing from GitHub.
-4. **`main` has unreleased code.** It is 7 commits past `v0.2.2`, including
-   analyzer changes from Phase 22 (`src/circa/analyzer.py`, `fingerprint.py`,
-   `log_parser.py`, `pipeline.py`). `project.version` is still 0.2.2, and
-   `CHANGELOG.md` has no unreleased section, although `CONTRIBUTING.md` asks
-   for one. The next release needs a version bump. The tag check correctly
-   prevents publishing `main` as 0.2.2.
-5. **Minor:** `v0.1.0` is a lightweight tag; later tags are annotated.
+1. **`main` has unreleased code.** It is past `v0.2.2`, including analyzer
+   changes from Phase 22 and the fixes listed under "Unreleased" in
+   `CHANGELOG.md`. `project.version` is still 0.2.2, so the next release needs a
+   version bump. The tag check correctly prevents publishing `main` as 0.2.2.
+   Until then, `pip install circa-ci` installs 0.2.2 without these changes.
+2. **Minor:** `v0.1.0` is a lightweight tag; later tags are annotated.

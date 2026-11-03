@@ -3,6 +3,7 @@ import re
 import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError, URLError
 
 import pytest
 from typer.testing import CliRunner
@@ -378,6 +379,44 @@ def test_invalid_ollama_diagnosis_falls_back_without_writing_knowledge(tmp_path:
     assert report["analysis"] == json.loads(analyze_log(UNKNOWN_LOG.read_text()).model_dump_json(exclude_none=True))
     assert "Local LLM unavailable or returned an invalid response" in result.output
     assert not path.exists()
+
+
+@pytest.mark.parametrize(
+    ("error", "model_ran", "reason"),
+    [
+        (URLError(ConnectionRefusedError(61, "Connection refused")), False, "no Ollama server is reachable at"),
+        (HTTPError("http://localhost:11434/api/generate", 404, "Not Found", {}, None), False, "is not installed"),  # type: ignore[arg-type]
+        (TimeoutError("timed out"), True, "did not reply within 60 seconds"),
+    ],
+    ids=["server-down", "model-not-installed", "timeout"],
+)
+def test_ollama_failures_say_why_and_keep_the_deterministic_analysis(
+    tmp_path: Path, error: Exception, model_ran: bool, reason: str
+) -> None:
+    path = tmp_path / "team.json"
+
+    with patch("circa.llm.urlopen", side_effect=error):
+        result = runner.invoke(app, ["investigate-log", str(UNKNOWN_LOG), "--knowledge", str(path), "--json"])
+
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert report["outcome"] == "deterministic_only"
+    assert report["llm_called"] is model_ran  # a server that is down or lacks the model ran nothing
+    assert report["analysis"] == json.loads(analyze_log(UNKNOWN_LOG.read_text()).model_dump_json(exclude_none=True))
+    assert reason in report["notes"][0]
+    assert not path.exists()
+
+
+def test_an_unreachable_ollama_url_is_reported_without_its_credentials(monkeypatch) -> None:
+    monkeypatch.setenv("CIRCA_OLLAMA_URL", "http://ci-bot:hunter22@127.0.0.1:9")
+
+    with patch("circa.llm.urlopen", side_effect=URLError(ConnectionRefusedError(61, "Connection refused"))):
+        result = runner.invoke(app, ["investigate-log", str(UNKNOWN_LOG)])
+
+    assert result.exit_code == 0
+    assert "LLM called: no" in result.output
+    assert "no Ollama server is reachable at http://127.0.0.1:9" in result.output
+    assert "hunter22" not in result.output and "ci-bot" not in result.output
 
 
 def test_zero_confidence_diagnosis_is_shown_but_not_drafted(tmp_path: Path) -> None:

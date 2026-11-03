@@ -276,6 +276,21 @@ def _grounded(incident: HistoricalIncident, log_lines: list[str]) -> bool:
     return evidence_observed(incident.evidence, log_lines) and any(map(_distinctive_evidence, incident.evidence))
 
 
+def _signature_observed(incident: HistoricalIncident, failure_tokens: set[str]) -> bool:
+    """Whether the failure shows what identifies the incident, not just words from its description.
+
+    A grounded incident with recorded evidence was already observed in the log. Otherwise at least one of
+    its declared keywords (every word of a phrase such as "no space") must appear: sharing only ordinary
+    words of its title or summary ("build", "no", "left") does not make a full disk.
+    """
+
+    if incident.evidence:
+        return True
+    # tokenize keeps dots for versions and paths, so a sentence-final "full." must still match "full".
+    observed = failure_tokens | {token.rstrip(".") for token in failure_tokens}
+    return any((words := tokenize(keyword)) and words <= observed for keyword in incident.keywords)
+
+
 def analyze_failure(
     failure: CIFailure,
     incidents: Iterable[HistoricalIncident] | None = None,
@@ -326,7 +341,10 @@ def analyze_failure(
         (category for category in _CATEGORY_KEYWORDS if category != "unknown"),
         key=lambda category: category_scores[category],
     )
-    strongest_match = next((match for match in matches if match.category == candidate), None)
+    strongest_match = next(
+        (match for match in matches if match.category == candidate and _signature_observed(match, failure_tokens)),
+        None,
+    )
     strong_incident_evidence = (
         strongest_match is not None and len((failure_tokens & incident_tokens(strongest_match)) - _GENERIC_TOKENS) >= 2
     )

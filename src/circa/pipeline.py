@@ -255,11 +255,16 @@ def investigate_log(
     references = [incident for incident in incidents if incident.id in analysis.matched_incident_ids]
     diagnosis = diagnose_failure(failure, analysis, references, provider)
     if diagnosis is None:
+        # A provider may say why it returned nothing and whether a model actually ran (Ollama does).
+        llm_error = getattr(provider, "last_error", None)
         return Investigation(
             outcome="deterministic_only",
-            llm_called=True,
+            llm_called=getattr(provider, "model_ran", True),
             notes=[
-                "Local LLM unavailable or returned an invalid response; showing deterministic analysis only.",
+                (
+                    "Local LLM unavailable or returned an invalid response"
+                    f"{f' ({llm_error})' if llm_error else ''}; showing deterministic analysis only."
+                ),
                 unknowns,
             ],
             **base,

@@ -668,3 +668,30 @@ def test_evidence_is_grounded_in_the_whole_log_not_only_the_extracted_failure_te
     result = analyze_log(log, incidents=[*INCIDENTS, _team([NOTES_LINE, PRETTIER_SUMMARY])])
 
     assert result.matched_incident_ids == ["team-scratch-files-001"]
+
+
+def test_words_from_an_incidents_description_without_its_keywords_do_not_make_a_match() -> None:
+    # Bazel run 39186278845 shared only "build", "no", and "left" with the disk-full incident.
+    failure = CIFailure(
+        failure_text="ERROR: no repository rules left to fetch; the build stopped: PERMISSION_DENIED: Missing API key"
+    )
+
+    result = analyze_failure(failure)
+
+    assert result.category == "unknown"
+    assert result.root_cause == "Insufficient deterministic evidence to identify a root cause."
+    assert result.matched_incident_ids == []
+
+
+@pytest.mark.parametrize(
+    ("text", "incident_id"),
+    [
+        ("Build output cannot be written because the agent filesystem is full.", "synthetic-hardware-disk-001"),
+        ("Tests died when the machine ran out of available memory.", "synthetic-hardware-memory-002"),
+    ],
+)
+def test_a_declared_keyword_at_the_end_of_a_sentence_still_identifies_the_incident(text: str, incident_id: str) -> None:
+    result = analyze_failure(CIFailure(failure_text=text))
+
+    assert result.category == "hardware"
+    assert result.matched_incident_ids[0] == incident_id
