@@ -37,6 +37,7 @@ pipx run pip-audit==2.10.1 --strict .
 pipx run zizmor==1.30.1 .github/workflows
 actionlint
 gitleaks git --redact .
+python scripts/check_release_consistency.py             # versions match pyproject.toml
 python -m pip install build==1.6.1 && python -m build   # sdist and wheel in dist/
 ```
 

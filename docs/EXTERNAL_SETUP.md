@@ -3,7 +3,8 @@
 This document lists the accounts, services and repository settings outside the
 source tree that a maintainer needs to develop and publish CIRCA. It describes
 the 0.3.0 release (2026-11-03). Observations about accounts and environments
-were made on 2026-11-02 unless stated otherwise.
+were made on 2026-11-02 unless stated otherwise. Repository rulesets and
+environment protection (§5, §6, §12) were re-read on 2026-11-13.
 
 It does not repeat the README. Using CIRCA, installing it, setting up the GitHub
 CLI and Ollama, running the CI checks locally and enforcing them before merge
@@ -80,13 +81,24 @@ What the source configures, and what can only be set in **Settings**:
 - **Secrets.** None are used. The repository and both environments have
   0 secrets and 0 variables. `GH_TOKEN` in the zizmor step is the built-in
   read-only job token.
-- **Branch protection for `main`.** Not configured: there is no ruleset and no
-  branch protection. README "Enforcing the gate before merge" explains how to
-  add it.
-- **Tag protection.** Not configured. Because the environments deploy from any
-  `v*` tag (section 6), anyone who can push a `v*` tag can start a release.
-  Consider a tag ruleset (**Settings → Rules → Rulesets → New tag ruleset**,
-  target `v*`) that restricts creation, update and deletion to maintainers.
+
+Repository rulesets (**Settings → Rules → Rulesets**), read on 2026-11-13 with
+`gh api repos/scmbuildrelease/CIRCA/rulesets`. Both are active, have no bypass
+list, and were created on 2026-11-03, after the 0.3.0 upload:
+
+- **`protect-main`** (branch ruleset, default branch). Blocks deletion and
+  force pushes, and requires a pull request to change `main`, with 0 required
+  approvals. Direct pushes to `main` are therefore rejected. It does **not**
+  require status checks, so a pull request can be merged while `ci.yml` checks
+  fail. README "Enforcing the gate before merge" explains how to add them.
+- **`protect-release-tags`** (tag ruleset, `refs/tags/v*`). Blocks deleting or
+  moving (updating) a `v*` tag. It does not restrict creating one, so anyone
+  with write access can still push a new `v*` tag and start a release run
+  (section 6).
+
+There is no classic branch protection; the rulesets above replace it. These
+are GitHub repository rules only. They don't change who PyPI or TestPyPI
+accept uploads from; that is the Trusted Publisher configuration (section 7).
 
 ## 6. GitHub Environments
 
@@ -104,28 +116,31 @@ The URL is shown on the run's summary page and in the repository's
 not configure it. If an environment doesn't exist, GitHub creates it with no
 protection on first use. Its rules live only in **Settings → Environments**.
 
-Current state, read on 2026-11-02 with `gh api repos/scmbuildrelease/CIRCA/environments`:
+Current state, read on 2026-11-13 with `gh api repos/scmbuildrelease/CIRCA/environments`
+(secrets and variables as of 2026-11-02):
 
-| Setting                      | `testpypi`       | `pypi`           |
-| ---------------------------- | ---------------- | ---------------- |
-| Exists                       | yes              | yes              |
-| Deployment branches and tags | tag pattern `v*` | tag pattern `v*` |
-| Required reviewers           | none             | **none**         |
-| Wait timer                   | none             | none             |
-| Admins can bypass            | yes              | yes              |
-| Secrets / variables          | 0 / 0            | 0 / 0            |
+| Setting                      | `testpypi`       | `pypi`              |
+| ---------------------------- | ---------------- | ------------------- |
+| Exists                       | yes              | yes                 |
+| Deployment branches and tags | tag pattern `v*` | tag pattern `v*`    |
+| Required reviewers           | none             | **scmbuildrelease** |
+| Prevent self-review          | n/a              | off                 |
+| Wait timer                   | none             | none                |
+| Admins can bypass            | yes              | yes                 |
+| Secrets / variables          | 0 / 0            | 0 / 0               |
 
 The `publish.yml` header says "The `pypi` environment should require a
-reviewer's approval". **That is not configured.** To add it (repository admin):
+reviewer's approval". That is now configured: a PyPI job waits for
+`scmbuildrelease` to approve it (**Review deployments** on the run page). The
+reviewer was added after the 0.3.0 release, so the 0.3.0 PyPI job, run
+number 41691138435, ran without an approval step.
 
-1. **Settings → Environments → pypi.**
-2. Enable **Required reviewers** and add one or more maintainers. Consider
-   enabling **Prevent self-review**, so the person who started the run can't
-   approve it.
-3. Optionally clear **Allow administrators to bypass configured protection
-   rules**.
-4. Leave **Deployment branches and tags** as **Selected branches and tags** with
-   the tag rule `v*`.
+Two limits remain, both in **Settings → Environments → pypi**:
+
+- **Prevent self-review** is off, so the person who started the run can approve
+  it. With one reviewer this is expected; enable it once there are two or more.
+- **Allow administrators to bypass configured protection rules** is on, so an
+  admin can skip the approval.
 
 `testpypi` doesn't need a reviewer. Keep its `v*` tag rule.
 
@@ -166,12 +181,14 @@ environment's protection rules. Before a project exists, the same form is under
 **Status: external configuration needs verification.**
 
 - Some publisher is configured on each index. 0.2.2 was uploaded to TestPyPI by
-  run 41348857022 and to PyPI by run 41349555807, and each index's provenance
-  for the files names `scmbuildrelease/CIRCA` and `publish.yml`.
-- That provenance shows **no environment** (`environment: null`). This suggests
-  the publishers were registered without an environment name. If so, any job in
-  `publish.yml` could upload to either index, regardless of the `pypi`
-  environment's rules. A project owner should open **Manage → Publishing** on
+  run 41348857022 and to PyPI by run 41349555807, and 0.3.0 by runs 41690890323
+  and 41691138435. Each index's provenance for the files names
+  `scmbuildrelease/CIRCA` and `publish.yml`.
+- That provenance shows **no environment** (`environment: null`, also for
+  0.3.0). This suggests the publishers were registered without an environment
+  name. If so, any job in `publish.yml` could upload to either index,
+  regardless of the `pypi` environment's rules, including its required
+  reviewer (section 6). A project owner should open **Manage → Publishing** on
   each index and add the environment names from the table above.
 - Trusted Publisher settings can't be read through a public API, so this can
   only be checked by a project owner, in the browser.
@@ -199,12 +216,14 @@ the CI quality gates; those come from `ci.yml` on the tagged commit.
 
 1. **Version.** In a pull request, set `project.version` in `pyproject.toml`.
 2. **Docs.** Add the release to `CHANGELOG.md`, and update the README's install
-   examples to the new version (see section 12 for the current gap).
+   examples and this document's described release to the new version.
+   `python scripts/check_release_consistency.py` lists any reference that
+   doesn't match (section 12).
 3. **CI.** Merge only when every `ci.yml` check passes on `main`.
 4. **Tag.** Tag the merged commit and push the tag:
    ```bash
    git tag -a v0.3.1 -m "CIRCA v0.3.1"   # must equal "v" + project.version
-   git push origin v0.2.3
+   git push origin v0.3.1
    ```
    PyPI never accepts the same version twice, so a mistake needs a new version.
 5. **Actions → Publish → Run workflow.**
@@ -218,9 +237,8 @@ the CI quality gates; those come from `ci.yml` on the tagged commit.
    ```
    The extra index supplies Pydantic and Typer, which TestPyPI may not have.
 9. Run the workflow again on the same tag with **index: pypi**.
-10. Once required reviewers are configured, approve the `pypi` deployment from
-    the run page (**Review deployments**). Until then, the job starts without
-    approval.
+10. Approve the `pypi` deployment from the run page (**Review deployments**).
+    The job waits until the required reviewer approves it (section 6).
 
 Each run builds again from the tag. The build backend is pinned, but the PyPI
 files are not guaranteed to be byte-identical to the TestPyPI ones.
@@ -291,37 +309,48 @@ The README covers installing Ollama. For maintainers:
 
 ## 12. Configuration status checklist
 
-Labels: **CONFIGURED IN SOURCE**, **EXTERNAL CONFIGURATION NEEDS VERIFICATION**,
-**NOT CONFIGURED**, **OPTIONAL**. Observations are from 2026-11-02.
+Labels: **CONFIGURED IN SOURCE**, **CONFIGURED IN SETTINGS** (read through the
+GitHub API), **EXTERNAL CONFIGURATION NEEDS VERIFICATION**, **NOT CONFIGURED**,
+**OPTIONAL**. Observations are from 2026-11-02; rulesets and the `pypi`
+reviewer were re-read on 2026-11-13.
 
-| Item                                                      | Status                                    | Evidence or action                                            |
-| --------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------- |
-| CI quality gates (`ci.yml`)                               | CONFIGURED IN SOURCE                      | 10 checks; minimal permissions; SHA-pinned actions            |
-| Publish workflow, tag/version check, build and smoke test | CONFIGURED IN SOURCE                      | `publish.yml` build job                                       |
-| OIDC (`id-token: write`, `gh-action-pypi-publish`)        | CONFIGURED IN SOURCE                      | publish jobs only                                             |
-| Environment `testpypi` (exists, `v*` tags)                | EXTERNAL CONFIGURATION NEEDS VERIFICATION | seen through the API; recheck in Settings before each release |
-| Environment `pypi` (exists, `v*` tags)                    | EXTERNAL CONFIGURATION NEEDS VERIFICATION | seen through the API; recheck in Settings                     |
-| Required reviewer on `pypi`                               | NOT CONFIGURED                            | add it (§6); the workflow comment expects it                  |
-| PyPI Trusted Publisher                                    | EXTERNAL CONFIGURATION NEEDS VERIFICATION | worked for 0.2.2; provenance shows no environment name (§7)   |
-| TestPyPI Trusted Publisher                                | EXTERNAL CONFIGURATION NEEDS VERIFICATION | same as PyPI                                                  |
-| PyPI and TestPyPI project ownership and 2FA               | EXTERNAL CONFIGURATION NEEDS VERIFICATION | `circa-ci` 0.2.2 exists on both; check owners (§4)            |
-| Branch protection or ruleset for `main`                   | NOT CONFIGURED                            | README "Enforcing the gate before merge"                      |
-| Tag ruleset for `v*`                                      | NOT CONFIGURED                            | recommended (§5)                                              |
-| Repository and environment secrets                        | CONFIGURED IN SOURCE (none needed)        | 0 secrets, 0 variables                                        |
-| Ollama and a local model                                  | OPTIONAL                                  | only for LLM drafts and semantic retrieval                    |
-| GitHub CLI login                                          | OPTIONAL                                  | only for GitHub run fetching                                  |
+| Item                                                      | Status                                    | Evidence or action                                               |
+| --------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------- |
+| CI quality gates (`ci.yml`)                               | CONFIGURED IN SOURCE                      | 11 checks; minimal permissions; SHA-pinned actions               |
+| Publish workflow, tag/version check, build and smoke test | CONFIGURED IN SOURCE                      | `publish.yml` build job                                          |
+| OIDC (`id-token: write`, `gh-action-pypi-publish`)        | CONFIGURED IN SOURCE                      | publish jobs only                                                |
+| Environment `testpypi` (exists, `v*` tags)                | EXTERNAL CONFIGURATION NEEDS VERIFICATION | seen through the API; recheck in Settings before each release    |
+| Environment `pypi` (exists, `v*` tags)                    | EXTERNAL CONFIGURATION NEEDS VERIFICATION | seen through the API; recheck in Settings                        |
+| Required reviewer on `pypi`                               | CONFIGURED IN SETTINGS                    | `scmbuildrelease`; self-review allowed, admins can bypass (§6)   |
+| PyPI Trusted Publisher                                    | EXTERNAL CONFIGURATION NEEDS VERIFICATION | worked for 0.2.2 and 0.3.0; provenance shows no environment (§7) |
+| TestPyPI Trusted Publisher                                | EXTERNAL CONFIGURATION NEEDS VERIFICATION | same as PyPI                                                     |
+| PyPI and TestPyPI project ownership and 2FA               | EXTERNAL CONFIGURATION NEEDS VERIFICATION | `circa-ci` 0.2.2 exists on both; check owners (§4)               |
+| Ruleset for `main` (`protect-main`)                       | CONFIGURED IN SETTINGS                    | no deletion or force push; pull request, 0 approvals (§5)        |
+| Required status checks before merge                       | NOT CONFIGURED                            | README "Enforcing the gate before merge"                         |
+| Tag ruleset for `v*` (`protect-release-tags`)             | CONFIGURED IN SETTINGS                    | no deletion or update; creation not restricted (§5)              |
+| Repository and environment secrets                        | CONFIGURED IN SOURCE (none needed)        | 0 secrets, 0 variables                                           |
+| Ollama and a local model                                  | OPTIONAL                                  | only for LLM drafts and semantic retrieval                       |
+| GitHub CLI login                                          | OPTIONAL                                  | only for GitHub run fetching                                     |
 
 ### Version consistency (updated 2026-11-03)
 
-For release 0.3.0, `pyproject.toml`, the README's install examples and
-`CHANGELOG.md` all say 0.3.0, and the tag is `v0.3.0`. Check the published
-side after each release:
+`project.version` in `pyproject.toml` is the only authoritative version. The
+CHANGELOG's newest heading, the README's install examples, the release this
+document describes, and the tag `v<version>` must match it.
+`scripts/check_release_consistency.py` checks this; the CI job
+`Release consistency` runs it on every push and pull request, without network
+access or credentials. Older versions in the CHANGELOG and in the history
+below are not checked.
 
 ```bash
-git ls-remote --tags origin v0.3.0                 # tag exists on GitHub
-gh release view v0.3.0 --repo scmbuildrelease/CIRCA
-python -m pip index versions circa-ci              # PyPI lists 0.3.0
+python scripts/check_release_consistency.py            # local files and git tags
+python scripts/check_release_consistency.py --online   # after a release: PyPI and GitHub latest
 ```
+
+Without `--online` it also checks that each `git tag -a` example is pushed
+with the same tag, and that release tags in the checkout aren't newer than the
+version. A checkout without tags skips the tag checks with a note. `--online`
+fails until the version is published on both PyPI and GitHub.
 
 Earlier discrepancies, kept for the record:
 

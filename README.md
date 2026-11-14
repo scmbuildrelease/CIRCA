@@ -723,6 +723,7 @@ embedding models, external LLM APIs, credentials, or private infrastructure.
 | `Security (Bandit)`                    | Python security lint of `src/`                                                     |
 | `Security (pip-audit)`                 | Known vulnerabilities in the declared runtime dependencies                         |
 | `Security (Gitleaks)`                  | Secrets anywhere in git history; findings are redacted in logs                     |
+| `Release consistency`                  | Version references, changelog, and release tags agree with `pyproject.toml`        |
 | `Workflows (actionlint + zizmor)`      | Workflow validity, shell scripts in `run:` steps, and Actions security issues      |
 | `Package (build + install smoke test)` | Builds sdist and wheel, installs the wheel in a clean venv, runs the CLI and setup |
 
@@ -744,6 +745,7 @@ python -m pytest --cov --cov-report=term-missing
 mypy
 pipx run bandit==1.9.4 -c pyproject.toml -r src
 pipx run pip-audit==2.10.1 --strict .
+python scripts/check_release_consistency.py
 python -m pip install build==1.6.1 && python -m build
 ```
 
